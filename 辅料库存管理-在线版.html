@@ -117,6 +117,12 @@
   .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 
   .flow-table { font-size: 12px; }
+  .batch-table { width: 100%; font-size: 13px; border-collapse: collapse; }
+  .batch-table th { background: #f5f5f5; padding: 8px 10px; text-align: left; border-bottom: 2px solid #ddd; font-weight: 600; position: sticky; top: 0; }
+  .batch-table td { padding: 6px 10px; border-bottom: 1px solid #eee; }
+  .batch-table tr:hover { background: #f8f9ff; }
+  .batch-table .qty-input { width: 90px !important; padding: 6px !important; font-size: 14px !important; }
+  #batchInList, #batchOutList { max-height: 50vh; overflow-y: auto; border: 1px solid #eee; border-radius: 6px; margin-top: 8px; }
   .flow-in { color: #34a853; font-weight: 600; }
   .flow-out { color: #ea4335; font-weight: 600; }
 
@@ -469,7 +475,7 @@
 
 <!-- 批量领入模态框 -->
 <div class="modal-overlay" id="batchInModal">
-  <div class="modal">
+  <div class="modal" style="width:800px">
     <h2 style="color:#34a853">批量领入登记</h2>
     <div class="form-group">
       <label>操作日期</label>
@@ -489,7 +495,7 @@
 
 <!-- 批量领出模态框 -->
 <div class="modal-overlay" id="batchOutModal">
-  <div class="modal" style="width:540px">
+  <div class="modal" style="width:800px">
     <h2 style="color:#ea4335">领出登记（待确认）</h2>
     <p style="font-size:12px;color:#999;margin-bottom:12px">提交后需由管理员确认发货，库存不会立即扣减。</p>
     <div class="form-row">
@@ -1183,9 +1189,10 @@ function openBatchInModal() {
   if (items.length === 0) { showToast('请先添加辅料'); return; }
   document.getElementById('inDate').value = today();
   document.getElementById('inRemark').value = '';
-  let html = '<table class="flow-table"><thead><tr><th>辅料</th><th>当前库存</th><th>领入数量</th></tr></thead><tbody>';
+  let html = '<table class="flow-table batch-table"><thead><tr><th style="width:50px">编号</th><th>辅料名称</th><th>料号</th><th style="width:80px">单位</th><th style="width:90px">当前库存</th><th style="width:100px">领入数量</th></tr></thead><tbody>';
   items.forEach(item => {
-    html += '<tr><td>' + item.name + (item.spec ? '(' + item.spec + ')' : '') + '</td><td>' + item.stock + ' ' + item.unit + '</td><td><input type="number" class="qty-input" id="in_' + item.id + '" min="0" value="0"></td></tr>';
+    const lowStock = (item.minStock > 0 && item.stock < item.minStock) ? ' style="color:#ea4335;font-weight:600"' : '';
+    html += '<tr><td>' + item.id + '</td><td>' + item.name + (item.spec ? ' (' + item.spec + ')' : '') + '</td><td style="color:#666;font-size:11px">' + (item.partNo || '-') + '</td><td>' + item.unit + '</td><td' + lowStock + '>' + item.stock + '</td><td><input type="number" class="qty-input" style="width:90px" id="in_' + item.id + '" min="0" value="0"></td></tr>';
   });
   html += '</tbody></table>';
   document.getElementById('batchInList').innerHTML = html;
@@ -1216,9 +1223,10 @@ function openBatchOutModal() {
   document.getElementById('outPerson').value = '';
   document.getElementById('outRemark').value = '';
   refreshPersonDatalist();
-  let html = '<table class="flow-table"><thead><tr><th>辅料</th><th>当前库存</th><th>领出数量</th></tr></thead><tbody>';
+  let html = '<table class="flow-table batch-table"><thead><tr><th style="width:50px">编号</th><th>辅料名称</th><th>料号</th><th style="width:80px">单位</th><th style="width:90px">当前库存</th><th style="width:100px">领出数量</th></tr></thead><tbody>';
   items.forEach(item => {
-    html += '<tr><td>' + item.name + (item.spec ? '(' + item.spec + ')' : '') + '</td><td>' + item.stock + ' ' + item.unit + '</td><td><input type="number" class="qty-input" id="out_' + item.id + '" min="0" max="' + item.stock + '" value="0"></td></tr>';
+    const lowStock = (item.stock === 0) ? ' style="color:#ea4335;font-weight:600"' : '';
+    html += '<tr><td>' + item.id + '</td><td>' + item.name + (item.spec ? ' (' + item.spec + ')' : '') + '</td><td style="color:#666;font-size:11px">' + (item.partNo || '-') + '</td><td>' + item.unit + '</td><td' + lowStock + '>' + item.stock + '</td><td><input type="number" class="qty-input" style="width:90px" id="out_' + item.id + '" min="0" max="' + item.stock + '" value="0"></td></tr>';
   });
   html += '</tbody></table>';
   document.getElementById('batchOutList').innerHTML = html;
