@@ -104,7 +104,7 @@
   .modal-overlay.active { display: flex; }
   .modal {
     background: #fff; border-radius: 12px; padding: 24px;
-    width: 480px; max-width: 90vw; max-height: 90vh; overflow-y: auto;
+    width: 480px; max-width: 95vw; max-height: 95vh; overflow-y: auto;
     box-shadow: 0 8px 32px rgba(0,0,0,0.2);
   }
   .modal h2 { font-size: 18px; margin-bottom: 16px; color: #1a73e8; }
@@ -117,12 +117,13 @@
   .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 
   .flow-table { font-size: 12px; }
-  .batch-table { width: 100%; font-size: 13px; border-collapse: collapse; }
+  .batch-table { width: 100%; font-size: 13px; border-collapse: collapse; table-layout: fixed; }
   .batch-table th { background: #f5f5f5; padding: 8px 10px; text-align: left; border-bottom: 2px solid #ddd; font-weight: 600; position: sticky; top: 0; }
-  .batch-table td { padding: 6px 10px; border-bottom: 1px solid #eee; }
+  .batch-table td { padding: 6px 10px; border-bottom: 1px solid #eee; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .batch-table td:first-child { white-space: normal; }
   .batch-table tr:hover { background: #f8f9ff; }
   .batch-table .qty-input { width: 90px !important; padding: 6px !important; font-size: 14px !important; }
-  #batchInList, #batchOutList { max-height: 50vh; overflow-y: auto; border: 1px solid #eee; border-radius: 6px; margin-top: 8px; }
+  #batchInList, #batchOutList { max-height: 60vh; overflow-y: auto; }
   .flow-in { color: #34a853; font-weight: 600; }
   .flow-out { color: #ea4335; font-weight: 600; }
 
@@ -475,7 +476,7 @@
 
 <!-- 批量领入模态框 -->
 <div class="modal-overlay" id="batchInModal">
-  <div class="modal" style="width:800px">
+  <div class="modal" style="width:680px">
     <h2 style="color:#34a853">批量领入登记</h2>
     <div class="form-group">
       <label>操作日期</label>
@@ -495,7 +496,7 @@
 
 <!-- 批量领出模态框 -->
 <div class="modal-overlay" id="batchOutModal">
-  <div class="modal" style="width:800px">
+  <div class="modal" style="width:680px">
     <h2 style="color:#ea4335">领出登记（待确认）</h2>
     <p style="font-size:12px;color:#999;margin-bottom:12px">提交后需由管理员确认发货，库存不会立即扣减。</p>
     <div class="form-row">
