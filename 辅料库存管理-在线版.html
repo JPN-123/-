@@ -5,27 +5,32 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>辅料库存管理系统</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+  * { margin:0; padding:0; box-sizing: border-box; }
   body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: #f0f2f5; color: #333; }
-
   .header {
     background: linear-gradient(135deg, #1a73e8, #0d47a1);
     color: #fff; padding: 16px 24px;
-    display: flex; justify-content: space-between; align-items: center;
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
   }
   .header h1 { font-size: 20px; font-weight: 600; }
   .header .stats { display: flex; gap: 24px; }
   .header .stat-item { text-align: center; }
   .header .stat-item .num { font-size: 22px; font-weight: 700; }
   .header .stat-item .label { font-size: 12px; opacity: 0.85; }
+  .header .user-info { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .header .user-info .role-tag { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .header .user-info .role-super { background: #fce8e6; color: #c5221f; }
+  .header .user-info .role-admin { background: #e8f0fe; color: #1a73e8; }
+  .header .user-info .role-user { background: #e8f5e9; color: #2e7d32; }
+  .header .user-info button { background: rgba(255,255,255,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.4); padding: 4px 12px; font-size: 12px; }
 
   .toolbar {
     background: #fff; padding: 12px 24px;
     border-bottom: 1px solid #e0e0e0;
     display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
   }
-  .toolbar-left { display: flex; gap: 8px; align-items: center; }
-  .toolbar-right { display: flex; gap: 8px; align-items: center; }
+  .toolbar-left { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .toolbar-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
   input[type="text"], input[type="number"], input[type="date"], select {
     border: 1px solid #d0d0d0; border-radius: 6px; padding: 7px 12px;
@@ -179,6 +184,36 @@
   .pending-card-items { font-size: 12px; color: #666; margin-bottom: 8px; padding: 6px 10px; background: #f5f5f5; border-radius: 4px; }
   .pending-card-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
+  /* 登录遮罩 */
+  .login-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(135deg, #1a73e8, #0d47a1);
+    z-index: 5000; display: flex; justify-content: center; align-items: center;
+  }
+  .login-box {
+    background: #fff; border-radius: 16px; padding: 40px 36px;
+    width: 380px; max-width: 90vw;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.3);
+    text-align: center;
+  }
+  .login-box h2 { font-size: 22px; color: #1a73e8; margin-bottom: 8px; }
+  .login-box .subtitle { font-size: 13px; color: #999; margin-bottom: 28px; }
+  .login-box .form-group { text-align: left; margin-bottom: 18px; }
+  .login-box .form-group label { font-size: 13px; color: #555; margin-bottom: 6px; display: block; }
+  .login-box .form-group input {
+    width: 100%; padding: 10px 14px; font-size: 14px;
+    border: 1px solid #d0d0d0; border-radius: 8px;
+  }
+  .login-box .form-group input:focus { border-color: #1a73e8; outline: none; }
+  .login-box button {
+    width: 100%; padding: 12px; font-size: 15px; font-weight: 600;
+    background: #1a73e8; color: #fff; border: none; border-radius: 8px;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .login-box button:hover { background: #1557b0; }
+  .login-box .error-msg { color: #ea4335; font-size: 12px; margin-top: 8px; display: none; }
+  .login-box .hint { font-size: 11px; color: #999; margin-top: 16px; }
+
   /* 加载遮罩 */
   .loading-overlay {
     position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -208,16 +243,43 @@
   .sync-dot.online { background: #34a853; }
   .sync-dot.saving { background: #f9ab00; animation: pulse-badge 1s infinite; }
   .sync-dot.error { background: #ea4335; }
+
+  /* 用户管理表格 */
+  .user-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  .user-table th { padding: 8px 12px; font-size: 12px; background: #fafafa; border-bottom: 2px solid #e0e0e0; text-align: left; }
+  .user-table td { padding: 8px 12px; font-size: 13px; border-bottom: 1px solid #f0f0f0; }
+  .user-table .role-super { color: #c5221f; font-weight: 600; }
+  .user-table .role-admin { color: #1a73e8; font-weight: 600; }
+  .user-table .role-user { color: #2e7d32; }
 </style>
 </head>
 <body>
+
+<!-- 登录遮罩 -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <h2>🔐 辅料库存管理</h2>
+    <div class="subtitle">请输入用户名和密码登录</div>
+    <div class="form-group">
+      <label>用户名</label>
+      <input type="text" id="loginUsername" placeholder="请输入用户名" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label>密码</label>
+      <input type="password" id="loginPassword" placeholder="请输入密码" autocomplete="current-password">
+    </div>
+    <button onclick="doLogin()">登 录</button>
+    <div class="error-msg" id="loginError"></div>
+    <div class="hint">提示：首次使用请联系管理员创建账号</div>
+  </div>
+</div>
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
   <div class="loading-text">正在加载数据...</div>
 </div>
 
-<div class="header">
+<div class="header" id="headerSection" style="display:none">
   <h1>辅料库存管理系统</h1>
   <div class="stats">
     <div class="stat-item">
@@ -237,27 +299,15 @@
       <div class="label">待确认</div>
     </div>
   </div>
+  <div class="user-info" id="userInfo"></div>
 </div>
 
-<div class="toolbar">
-  <div class="toolbar-left">
-    <button class="btn-primary" onclick="openAddModal()">+ 新增辅料</button>
-    <button class="btn-success" onclick="openBatchInModal()">批量领入</button>
-    <button class="btn-warning" onclick="openBatchOutModal()">批量领出</button>
-    <button class="btn-purple btn-pending-badge" onclick="showPendingList()">
-      待确认发货
-      <span class="badge-count" id="pendingBadge" style="display:none">0</span>
-    </button>
-    <input type="text" id="searchInput" placeholder="搜索辅料名称/料号/编号..." oninput="renderTable()" style="width:200px">
-  </div>
-  <div class="toolbar-right">
-    <button class="btn-outline" id="adminLogoutBtn" style="display:none;color:#ea4335;border-color:#ea4335" onclick="logoutAdmin()">退出管理</button>
-    <button class="btn-outline" onclick="exportCSV()">导出 CSV</button>
-    <button class="btn-outline" onclick="showHistory()">流水记录</button>
-  </div>
+<div class="toolbar" id="toolbarSection" style="display:none">
+  <div class="toolbar-left" id="toolbarLeft"></div>
+  <div class="toolbar-right" id="toolbarRight"></div>
 </div>
 
-<div class="table-container">
+<div class="table-container" id="tableSection" style="display:none">
   <table>
     <thead>
       <tr>
@@ -348,6 +398,71 @@
     <div class="modal-actions">
       <button class="btn-outline" onclick="closeModal('addModal')">取消</button>
       <button class="btn-primary" onclick="addItem()">确认添加</button>
+    </div>
+  </div>
+</div>
+
+<!-- 编辑辅料模态框 -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h2>编辑辅料</h2>
+    <input type="hidden" id="editId">
+    <div class="form-group">
+      <label>料号</label>
+      <input type="text" id="editPartNo">
+    </div>
+    <div class="form-group">
+      <label>辅料名称 <span class="required">*</span></label>
+      <input type="text" id="editName">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>分类</label>
+        <select id="editCategory">
+          <option value="包材辅料">包材辅料</option>
+          <option value="附件盒">附件盒</option>
+          <option value="珍珠棉(EPE)">珍珠棉(EPE)</option>
+          <option value="外箱">外箱</option>
+          <option value="标签贴纸">标签贴纸</option>
+          <option value="硅脂">硅脂</option>
+          <option value="用品">用品</option>
+          <option value="螺丝">螺丝</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>规格/型号</label>
+        <input type="text" id="editSpec">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>单位</label>
+        <select id="editUnit">
+          <option value="个">个</option>
+          <option value="包">包</option>
+          <option value="卷">卷</option>
+          <option value="根">根</option>
+          <option value="片">片</option>
+          <option value="瓶">瓶</option>
+          <option value="支">支</option>
+          <option value="米">米</option>
+          <option value="kg">kg</option>
+          <option value="箱">箱</option>
+          <option value="双">双</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>最低库存（预警线）<span class="required">*</span></label>
+        <input type="number" id="editMinStock" min="0">
+      </div>
+      <div class="form-group">
+        <label>起订量（按1月）</label>
+        <input type="number" id="editMinOrder" min="0">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-outline" onclick="closeModal('editModal')">取消</button>
+      <button class="btn-primary" onclick="submitEdit()">保存修改</button>
     </div>
   </div>
 </div>
@@ -514,7 +629,7 @@
         <option value="out">仅领出</option>
         <option value="pending">仅待确认</option>
       </select>
-      <button class="btn-outline" onclick="clearHistory()">清空记录</button>
+      <button class="btn-outline" id="clearHistoryBtn" onclick="clearHistory()">清空记录</button>
     </div>
     <table class="flow-table">
       <thead>
@@ -536,8 +651,69 @@
   </div>
 </div>
 
+<!-- 用户管理模态框 -->
+<div class="modal-overlay" id="userManageModal">
+  <div class="modal" style="width:540px">
+    <h2>用户管理</h2>
+    <div style="margin-bottom:12px">
+      <button class="btn-primary" onclick="showAddUser()">+ 新增用户</button>
+    </div>
+    <div id="userListTable"></div>
+    <div class="modal-actions">
+      <button class="btn-outline" onclick="closeModal('userManageModal')">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 新增用户模态框 -->
+<div class="modal-overlay" id="addUserModal">
+  <div class="modal">
+    <h2>新增用户</h2>
+    <div class="form-group">
+      <label>用户名 <span class="required">*</span></label>
+      <input type="text" id="newUsername" placeholder="输入用户名">
+    </div>
+    <div class="form-group">
+      <label>密码 <span class="required">*</span></label>
+      <input type="password" id="newPassword" placeholder="输入密码">
+    </div>
+    <div class="form-group">
+      <label>角色 <span class="required">*</span></label>
+      <select id="newRole">
+        <option value="user">普通用户（仅领出）</option>
+        <option value="admin">管理用户（领入+领出）</option>
+        <option value="super">超级用户（全部权限）</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-outline" onclick="closeModal('addUserModal')">取消</button>
+      <button class="btn-primary" onclick="submitAddUser()">确认添加</button>
+    </div>
+  </div>
+</div>
+
+<!-- 重置密码模态框 -->
+<div class="modal-overlay" id="resetPwdModal">
+  <div class="modal">
+    <h2>重置密码</h2>
+    <input type="hidden" id="resetUserId">
+    <div class="form-group">
+      <label>新密码 <span class="required">*</span></label>
+      <input type="password" id="resetNewPwd" placeholder="输入新密码">
+    </div>
+    <div class="form-group">
+      <label>确认新密码 <span class="required">*</span></label>
+      <input type="password" id="resetConfirmPwd" placeholder="再次输入新密码">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-outline" onclick="closeModal('resetPwdModal')">取消</button>
+      <button class="btn-primary" onclick="submitResetPwd()">确认重置</button>
+    </div>
+  </div>
+</div>
+
 <!-- 同步状态指示器 -->
-<div class="sync-status" id="syncStatus">
+<div class="sync-status" id="syncStatus" style="display:none">
   <span class="sync-dot online" id="syncDot"></span>
   <span id="syncText">已连接</span>
 </div>
@@ -548,6 +724,7 @@
 // ============================================================
 //  在线版 - 数据通过 GitHub Gist 云端存储
 //  多设备/多人实时共享同一份数据
+//  用户权限管理：super（超级用户）/ admin（管理用户）/ user（普通用户）
 // ============================================================
 
 const GIST_ID_KEY = 'inventory_gist_id';
@@ -560,6 +737,8 @@ let history = [];
 let persons = [];
 let confirmers = [];
 let pendingOuts = [];
+let users = [];
+let currentUser = null; // { username, role }
 let sortField = 'id';
 let sortOrder = 'asc';
 let nextId = 1001;
@@ -572,6 +751,20 @@ let dataLoaded = false;
 
 function today() { return new Date().toISOString().split('T')[0]; }
 
+// ========== 角色权限判断 ==========
+const ROLE_LEVEL = { 'user': 1, 'admin': 2, 'super': 3 };
+
+function hasRole(minRole) {
+  if (!currentUser) return false;
+  return ROLE_LEVEL[currentUser.role] >= ROLE_LEVEL[minRole];
+}
+function roleLabel(role) {
+  return { 'super': '超级用户', 'admin': '管理用户', 'user': '普通用户' }[role] || role;
+}
+function roleTagClass(role) {
+  return 'role-' + role;
+}
+
 // ========== 云端数据操作 ==========
 const PRESET_GIST_ID = '8cd0ec9b1c7ba76a3186a4db9f6d8e80';
 function getGistId() {
@@ -579,16 +772,15 @@ function getGistId() {
   if (hash && hash.length > 10) return hash;
   return localStorage.getItem(GIST_ID_KEY) || PRESET_GIST_ID;
 }
-
 function setGistId(id) {
   gistId = id;
   localStorage.setItem(GIST_ID_KEY, id);
   window.location.hash = id;
 }
-
 function setSyncStatus(status, text) {
   const dot = document.getElementById('syncDot');
   const label = document.getElementById('syncText');
+  document.getElementById('syncStatus').style.display = '';
   dot.className = 'sync-dot ' + status;
   label.textContent = text;
 }
@@ -596,14 +788,11 @@ function setSyncStatus(status, text) {
 async function loadData() {
   if (!GITHUB_TOKEN) {
     setSyncStatus('error', '未配置Token');
-    showToast('请在地址栏添加 token 参数，例如：?token=ghp_xxxx');
+    showToast('请在地址栏添加 ?token=xxx 参数');
     return;
   }
   const id = getGistId();
-  if (!id) {
-    await createNewGist();
-    return;
-  }
+  if (!id) { await createNewGist(); return; }
   gistId = id;
   try {
     const res = await fetch(GIST_API + '/' + gistId, {
@@ -617,16 +806,10 @@ async function loadData() {
         applyData(data);
         dataLoaded = true;
         setSyncStatus('online', '已连接');
-      } else {
-        await createNewGist();
-      }
-    } else {
-      console.warn('Gist not found, creating new one');
-      await createNewGist();
-    }
+      } else { await createNewGist(); }
+    } else { await createNewGist(); }
   } catch (e) {
     console.error('Load error:', e);
-    showToast('数据加载失败，正在重试...');
     setSyncStatus('error', '连接失败');
     setTimeout(() => loadData(), 3000);
   }
@@ -656,7 +839,6 @@ async function createNewGist() {
       setSyncStatus('online', '已连接（新数据）');
     } else {
       const err = await res.json().catch(() => ({}));
-      console.error('Create gist error:', err);
       showToast('创建数据失败：' + (err.message || '未知错误'));
     }
   } catch (e) {
@@ -669,7 +851,10 @@ function getDefaultData() {
   return {
     items: [], history: [], persons: [], confirmers: [],
     pendingOuts: [], nextId: 1001, nextOutId: 1,
-    _appVersion: 7
+    users: [
+      { username: 'admin', password: '8888', role: 'super' }
+    ],
+    _appVersion: 8
   };
 }
 
@@ -681,12 +866,17 @@ function applyData(data) {
   pendingOuts = data.pendingOuts || [];
   nextId = data.nextId || 1001;
   nextOutId = data.nextOutId || 1;
+  users = data.users || [];
+  // 兼容旧数据：如果没有 users 字段，创建默认管理员
+  if (!data.users || data.users.length === 0) {
+    users = [{ username: 'admin', password: '8888', role: 'super' }];
+  }
 }
 
 function collectData() {
   return {
-    items, history, persons, confirmers, pendingOuts, nextId, nextOutId,
-    _appVersion: 7
+    items, history, persons, confirmers, pendingOuts, nextId, nextOutId, users,
+    _appVersion: 8
   };
 }
 
@@ -710,11 +900,8 @@ async function save() {
             files: { [GIST_FILENAME]: { content: JSON.stringify(collectData()) } }
           })
         });
-        if (res.ok) {
-          setSyncStatus('online', '已同步');
-        } else {
-          setSyncStatus('error', '保存失败');
-        }
+        if (res.ok) { setSyncStatus('online', '已同步'); }
+        else { setSyncStatus('error', '保存失败'); }
       } catch (e) {
         console.error('Save error:', e);
         setSyncStatus('error', '保存失败');
@@ -725,7 +912,138 @@ async function save() {
   });
 }
 
-// ========== 业务逻辑（与原版一致） ==========
+// ========== 登录系统 ==========
+function checkLogin() {
+  const saved = localStorage.getItem('currentUser');
+  if (saved) {
+    try {
+      const u = JSON.parse(saved);
+      // 验证用户是否还存在于 users 列表
+      const exists = users.find(x => x.username === u.username && x.role === u.role);
+      if (exists) {
+        currentUser = u;
+        showApp();
+        return;
+      }
+    } catch(e) {}
+  }
+  // 未登录，显示登录框
+  document.getElementById('loginOverlay').style.display = 'flex';
+  document.getElementById('headerSection').style.display = 'none';
+  document.getElementById('toolbarSection').style.display = 'none';
+  document.getElementById('tableSection').style.display = 'none';
+}
+
+function doLogin() {
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errorEl = document.getElementById('loginError');
+
+  if (!username || !password) {
+    errorEl.textContent = '请输入用户名和密码';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  const user = users.find(u => u.username === username && u.password === password);
+  if (!user) {
+    errorEl.textContent = '用户名或密码错误';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  currentUser = { username: user.username, role: user.role };
+  localStorage.setItem('currentUser', JSON.stringify(currentUser));
+  errorEl.style.display = 'none';
+  document.getElementById('loginOverlay').style.display = 'none';
+  showApp();
+  showToast('欢迎回来，' + username + '（' + roleLabel(user.role) + '）');
+}
+
+function doLogout() {
+  currentUser = null;
+  localStorage.removeItem('currentUser');
+  document.getElementById('loginOverlay').style.display = 'flex';
+  document.getElementById('headerSection').style.display = 'none';
+  document.getElementById('toolbarSection').style.display = 'none';
+  document.getElementById('tableSection').style.display = 'none';
+  document.getElementById('loginUsername').value = '';
+  document.getElementById('loginPassword').value = '';
+}
+
+// 回车登录
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && document.getElementById('loginOverlay').style.display === 'flex') {
+    doLogin();
+  }
+});
+
+function showApp() {
+  renderUserInfo();
+  renderToolbar();
+  document.getElementById('headerSection').style.display = '';
+  document.getElementById('toolbarSection').style.display = '';
+  document.getElementById('tableSection').style.display = '';
+  renderTable();
+  refreshPersonDatalist();
+}
+
+function renderUserInfo() {
+  const el = document.getElementById('userInfo');
+  if (!currentUser) { el.innerHTML = ''; return; }
+  const roleMap = { 'super': '超级用户', 'admin': '管理用户', 'user': '普通用户' };
+  const clsMap = { 'super': 'role-super', 'admin': 'role-admin', 'user': 'role-user' };
+  el.innerHTML = '<span class="role-tag ' + clsMap[currentUser.role] + '">' + roleMap[currentUser.role] + '</span>' +
+    '<span style="color:rgba(255,255,255,0.9)">' + currentUser.username + '</span>' +
+    '<button onclick="doLogout()">退出</button>';
+}
+
+function renderToolbar() {
+  const left = document.getElementById('toolbarLeft');
+  const right = document.getElementById('toolbarRight');
+  let leftHtml = '';
+  let rightHtml = '';
+
+  // 新增辅料（仅超级用户）
+  if (hasRole('super')) {
+    leftHtml += '<button class="btn-primary" onclick="openAddModal()">+ 新增辅料</button>';
+  }
+  // 批量领入（管理用户及以上）
+  if (hasRole('admin')) {
+    leftHtml += '<button class="btn-success" onclick="openBatchInModal()">批量领入</button>';
+  }
+  // 批量领出（所有登录用户）
+  leftHtml += '<button class="btn-warning" onclick="openBatchOutModal()">批量领出</button>';
+  // 待确认发货（所有登录用户）
+  leftHtml += '<button class="btn-purple btn-pending-badge" onclick="showPendingList()">待确认发货<span class="badge-count" id="pendingBadge" style="display:none">0</span></button>';
+  // 搜索框
+  leftHtml += '<input type="text" id="searchInput" placeholder="搜索辅料名称/料号/编号..." oninput="renderTable()" style="width:200px">';
+
+  // 右侧工具栏
+  // 用户管理（仅超级用户）
+  if (hasRole('super')) {
+    rightHtml += '<button class="btn-outline" onclick="openUserManage()">用户管理</button>';
+  }
+  // 导出 CSV（管理用户及以上）
+  if (hasRole('admin')) {
+    rightHtml += '<button class="btn-outline" onclick="exportCSV()">导出 CSV</button>';
+  }
+  // 流水记录（管理用户及以上）
+  if (hasRole('admin')) {
+    rightHtml += '<button class="btn-outline" onclick="showHistory()">流水记录</button>';
+  }
+
+  left.innerHTML = leftHtml;
+  right.innerHTML = rightHtml;
+
+  // 重新绑定搜索框事件（因为 innerHTML 替换后会丢失引用）
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) {
+    searchInput.addEventListener('input', renderTable);
+  }
+}
+
+// ========== 业务逻辑 ==========
 function addPerson(name) {
   name = name.trim();
   if (name && !persons.includes(name)) { persons.push(name); }
@@ -787,36 +1105,9 @@ function showConfirm(icon, title, detailHtml, btnText, btnClass, extraHtml, call
 function cancelConfirm() { pendingAction = null; document.getElementById('confirmOverlay').classList.remove('active'); }
 function executeConfirm() { if (pendingAction) { pendingAction(); pendingAction = null; } document.getElementById('confirmOverlay').classList.remove('active'); }
 
-// ========== 管理员密码 ==========
-const ADMIN_PASSWORD = '8888';
-let isAdmin = false;
-let adminCheckTime = 0;
-const ADMIN_SESSION = 30 * 60 * 1000; // 30分钟有效
-
-function checkAdmin() {
-  if (isAdmin && Date.now() - adminCheckTime < ADMIN_SESSION) return true;
-  const pwd = prompt('请输入管理员密码：');
-  if (pwd === ADMIN_PASSWORD) {
-    isAdmin = true;
-    adminCheckTime = Date.now();
-    document.getElementById('adminLogoutBtn').style.display = '';
-    return true;
-  }
-  showToast('密码错误');
-  return false;
-}
-
-function logoutAdmin() {
-  isAdmin = false;
-  adminCheckTime = 0;
-  document.getElementById('adminLogoutBtn').style.display = 'none';
-  showToast('已退出管理员模式');
-  renderTable();
-}
-
-// ========== 新增辅料 ==========
+// ========== 新增辅料（超级用户）==========
 function openAddModal() {
-  if (!checkAdmin()) return;
+  if (!hasRole('super')) { showToast('仅超级用户可以新增辅料'); return; }
   document.getElementById('addName').value = '';
   document.getElementById('addPartNo').value = '';
   document.getElementById('addSpec').value = '';
@@ -851,8 +1142,42 @@ async function addItem() {
   showToast('添加成功：' + name);
 }
 
-// ========== 批量领入 ==========
+// ========== 编辑辅料（超级用户）==========
+function openEditModal(id) {
+  if (!hasRole('super')) { showToast('仅超级用户可以编辑辅料'); return; }
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  document.getElementById('editId').value = id;
+  document.getElementById('editPartNo').value = item.partNo || '';
+  document.getElementById('editName').value = item.name;
+  document.getElementById('editCategory').value = item.category;
+  document.getElementById('editSpec').value = item.spec || '';
+  document.getElementById('editUnit').value = item.unit;
+  document.getElementById('editMinStock').value = item.minStock;
+  document.getElementById('editMinOrder').value = item.minOrder || 0;
+  document.getElementById('editModal').classList.add('active');
+}
+
+async function submitEdit() {
+  const id = parseInt(document.getElementById('editId').value);
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  const name = document.getElementById('editName').value.trim();
+  if (!name) { showToast('请输入辅料名称'); return; }
+  item.name = name;
+  item.partNo = document.getElementById('editPartNo').value.trim();
+  item.category = document.getElementById('editCategory').value;
+  item.spec = document.getElementById('editSpec').value.trim();
+  item.unit = document.getElementById('editUnit').value;
+  item.minStock = parseInt(document.getElementById('editMinStock').value) || 0;
+  item.minOrder = parseInt(document.getElementById('editMinOrder').value) || 0;
+  await save(); closeModal('editModal'); renderTable();
+  showToast('修改成功：' + name);
+}
+
+// ========== 批量领入（管理用户及以上）==========
 function openBatchInModal() {
+  if (!hasRole('admin')) { showToast('权限不足：需要管理用户及以上'); return; }
   if (items.length === 0) { showToast('请先添加辅料'); return; }
   document.getElementById('inDate').value = today();
   document.getElementById('inRemark').value = '';
@@ -881,7 +1206,7 @@ async function submitBatchIn() {
   showToast('已领入 ' + count + ' 项辅料');
 }
 
-// ========== 批量领出 ==========
+// ========== 批量领出（所有用户）==========
 function openBatchOutModal() {
   if (items.length === 0) { showToast('请先添加辅料'); return; }
   document.getElementById('outDate').value = today();
@@ -924,8 +1249,9 @@ async function submitBatchOut() {
   showToast('领出申请已提交，待确认发货（' + outList.length + ' 项）');
 }
 
-// ========== 快速领入 ==========
+// ========== 快速领入（管理用户及以上）==========
 function quickIn(id) {
+  if (!hasRole('admin')) { showToast('权限不足：需要管理用户及以上'); return; }
   const item = items.find(i => i.id === id);
   if (!item) return;
   document.getElementById('quickInTitle').textContent = '领入 — ' + item.name;
@@ -950,7 +1276,7 @@ async function submitQuickIn() {
   showToast('领入成功：' + item.name + ' x ' + qty);
 }
 
-// ========== 快速领出 ==========
+// ========== 快速领出（所有用户）==========
 function quickOut(id) {
   const item = items.find(i => i.id === id);
   if (!item) return;
@@ -992,7 +1318,6 @@ function showPendingList() { renderPendingList(); document.getElementById('pendi
 function renderPendingList() {
   const container = document.getElementById('pendingList');
   if (pendingOuts.length === 0) { container.innerHTML = '<div class="empty" style="padding:24px"><p>暂无待确认的领出申请</p></div>'; return; }
-
   let html = '';
   pendingOuts.forEach(order => {
     const time = new Date(order.createdAt).toLocaleString('zh-CN');
@@ -1054,7 +1379,7 @@ function confirmShip(orderId) {
 
   if (!stockOk) { showConfirm('out', '无法确认发货', detailHtml, '知道了', 'btn-outline', warningHtml, function() {}); return; }
 
-  let extraHtml = '<div style="text-align:left;margin-bottom:0"><label style="display:block;font-size:13px;font-weight:500;margin-bottom:4px;color:#555">请输入确认人姓名 <span style="color:#ea4335">*</span></label><input type="text" id="confirmShipConfirmer" placeholder="输入确认人姓名" list="confirmerDatalist" style="width:100%;border:1px solid #d0d0d0;border-radius:6px;padding:7px 12px;font-size:13px"><datalist id="confirmerDatalist"></datalist></div>' + warningHtml;
+  let extraHtml = '<div style="text-align:left;margin-bottom:0"><label style="display:block;font-size:13px;font-weight:500;margin-bottom:4px;color:#555">请输入确认人姓名 <span style="color:#ea4335">*</span></label><input type="text" id="confirmShipConfirmer" placeholder="输入确认人姓名" list="confirmerDatalist" style="width:100%;border:1px solid #d0d0d0;border-radius:6px;padding:7px 12px"><datalist id="confirmerDatalist"></datalist></div>' + warningHtml;
   refreshConfirmerDatalist();
 
   showConfirm('confirm', '确认发货', detailHtml, '✅ 确认发货', 'btn-success', extraHtml, async function() {
@@ -1066,7 +1391,7 @@ function confirmShip(orderId) {
       const item = items.find(i => i.id === it.itemId);
       if (item) {
         item.totalOut += it.qty; item.stock -= it.qty;
-        history.push({ date: order.date, itemId: item.id, itemName: it.itemName, type: 'out', qty: it.qty, stockAfter: item.stock, person: order.person, confirmer: confirmerName, line: order.line, remark: order.remark || '领出', status: 'confirmed' });
+        history.push({ date: order.date, itemId: it.itemId, itemName: it.itemName, type: 'out', qty: it.qty, stockAfter: item.stock, person: order.person, confirmer: confirmerName, line: order.line, remark: order.remark || '领出', status: 'confirmed' });
       }
     });
     addConfirmer(confirmerName);
@@ -1076,9 +1401,9 @@ function confirmShip(orderId) {
   });
 }
 
-// ========== 删除 ==========
+// ========== 删除辅料（超级用户）==========
 function deleteItem(id) {
-  if (!checkAdmin()) return;
+  if (!hasRole('super')) { showToast('仅超级用户可以删除辅料'); return; }
   const item = items.find(i => i.id === id);
   if (!item) return;
   let detailHtml = '<div class="confirm-detail-row"><span class="label">辅料名称</span><span class="value">' + item.name + '</span></div>';
@@ -1101,7 +1426,12 @@ function sortBy(field) {
 // ========== 渲染表格 ==========
 function renderTable() {
   const search = document.getElementById('searchInput').value.trim().toLowerCase();
-  let filtered = items.filter(i => i.name.toLowerCase().includes(search) || i.id.toString().includes(search) || (i.partNo && i.partNo.toLowerCase().includes(search)) || (i.spec && i.spec.toLowerCase().includes(search)));
+  let filtered = items.filter(i =>
+    i.name.toLowerCase().includes(search) ||
+    i.id.toString().includes(search) ||
+    (i.partNo && i.partNo.toLowerCase().includes(search)) ||
+    (i.spec && i.spec.toLowerCase().includes(search))
+  );
   filtered.sort((a, b) => {
     let va = a[sortField], vb = b[sortField];
     if (typeof va === 'string') va = va.toLowerCase();
@@ -1123,7 +1453,23 @@ function renderTable() {
       if (item.stock === 0) statusBadge = '<span class="badge-danger">缺货</span>';
       else if (isWarning) statusBadge = '<span class="badge-low">库存不足</span>';
       else statusBadge = '<span class="badge-ok">正常</span>';
-      html += '<tr class="' + (isWarning ? 'row-warning' : '') + '"><td>' + item.id + '</td><td style="font-family:monospace;font-size:12px;color:#555">' + (item.partNo || '-') + '</td><td><strong>' + item.name + '</strong></td><td><span class="tag">' + item.category + '</span></td><td>' + (item.spec || '-') + '</td><td>' + item.unit + '</td><td class="flow-in">+' + item.totalIn + '</td><td class="flow-out">-' + item.totalOut + '</td><td><strong>' + item.stock + '</strong></td><td>' + item.minStock + '</td><td>' + (item.minOrder > 0 ? item.minOrder : '-') + '</td><td>' + statusBadge + '</td><td><div class="action-btns"><button class="btn-success" style="font-size:11px;padding:3px 8px" onclick="quickIn(' + item.id + ')">领入</button><button class="btn-warning" style="font-size:11px;padding:3px 8px" onclick="quickOut(' + item.id + ')">领出</button><button class="btn-danger" style="font-size:11px;padding:3px 8px" onclick="deleteItem(' + item.id + ')">删除</button></div></td></tr>';
+      // 操作按钮（按权限）
+      let actions = '';
+      // 领入按钮（管理用户及以上）
+      if (hasRole('admin')) {
+        actions += '<button class="btn-success" style="font-size:11px;padding:3px 8px" onclick="quickIn(' + item.id + ')">领入</button>';
+      }
+      // 领出按钮（所有用户）
+      actions += '<button class="btn-warning" style="font-size:11px;padding:3px 8px" onclick="quickOut(' + item.id + ')">领出</button>';
+      // 编辑按钮（超级用户）
+      if (hasRole('super')) {
+        actions += '<button class="btn-outline" style="font-size:11px;padding:3px 8px" onclick="openEditModal(' + item.id + ')">编辑</button>';
+      }
+      // 删除按钮（超级用户）
+      if (hasRole('super')) {
+        actions += '<button class="btn-danger" style="font-size:11px;padding:3px 8px" onclick="deleteItem(' + item.id + ')">删除</button>';
+      }
+      html += '<tr class="' + (isWarning ? 'row-warning' : '') + '"><td>' + item.id + '</td><td style="font-family:monospace;font-size:12px;color:#555">' + (item.partNo || '-') + '</td><td><strong>' + item.name + '</strong></td><td><span class="tag">' + item.category + '</span></td><td>' + (item.spec || '-') + '</td><td>' + item.unit + '</td><td class="flow-in">+' + item.totalIn + '</td><td class="flow-out">-' + item.totalOut + '</td><td><strong>' + item.stock + '</strong></td><td>' + item.minStock + '</td><td>' + (item.minOrder > 0 ? item.minOrder : '-') + '</td><td>' + statusBadge + '</td><td><div class="action-btns">' + actions + '</div></td></tr>';
     });
     tbody.innerHTML = html;
   }
@@ -1137,14 +1483,17 @@ function updateStats() {
   document.getElementById('statWarning').textContent = items.filter(i => i.stock <= i.minStock).length;
 }
 
-// ========== 流水记录 ==========
-function showHistory() { renderHistory(); document.getElementById('historyModal').classList.add('active'); }
+// ========== 流水记录（管理用户及以上）==========
+function showHistory() {
+  if (!hasRole('admin')) { showToast('权限不足：需要管理用户及以上'); return; }
+  renderHistory(); document.getElementById('historyModal').classList.add('active');
+}
 
 function renderHistory() {
-  const search = (document.getElementById('historySearch').value || '').trim().toLowerCase();
-  const filter = document.getElementById('historyFilter').value;
+  const search = (document.getElementById('historySearch') || '').value || '';
+  const filter = (document.getElementById('historyFilter') || 'all').value;
   let filtered = history.filter(h => {
-    if (search && !h.itemName.toLowerCase().includes(search) && !(h.person && h.person.toLowerCase().includes(search)) && !(h.confirmer && h.confirmer.toLowerCase().includes(search)) && !(h.line && h.line.toLowerCase().includes(search)) && !h.remark.toLowerCase().includes(search)) return false;
+    if (search && !h.itemName.toLowerCase().includes(search.toLowerCase()) && !(h.person && h.person.toLowerCase().includes(search.toLowerCase())) && !(h.confirmer && h.confirmer.toLowerCase().includes(search.toLowerCase())) && !(h.line && h.line.toLowerCase().includes(search.toLowerCase())) && !(h.remark && h.remark.toLowerCase().includes(search.toLowerCase()))) return false;
     if (filter === 'in' && h.type !== 'in') return false;
     if (filter === 'out' && h.type !== 'out') return false;
     if (filter === 'pending' && h.status !== 'pending') return false;
@@ -1153,41 +1502,41 @@ function renderHistory() {
   filtered = filtered.slice().reverse();
   const tbody = document.getElementById('historyBody');
   if (filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#999;padding:24px">暂无记录</td></tr>'; return; }
-
   let html = '';
   filtered.forEach(h => {
     const personCell = h.person ? '<span class="person-tag">' + h.person + '</span>' : '<span style="color:#ccc">-</span>';
     const confirmerCell = h.confirmer ? '<span class="confirmer-tag">' + h.confirmer + '</span>' : '<span style="color:#ccc">-</span>';
     const lineCell = h.line ? '<span class="line-tag ' + getLineClass(h.line) + '">' + h.line + '</span>' : '<span style="color:#ccc">-</span>';
     const statusCell = h.status === 'confirmed' ? '<span class="badge-confirmed">已确认</span>' : '<span class="badge-pending">待确认</span>';
-    html += '<tr><td>' + h.date + '</td><td>' + h.itemName + '</td><td class="' + (h.type === 'in' ? 'flow-in' : 'flow-out') + '">' + (h.type === 'in' ? '领入' : '领出') + '</td><td class="' + (h.type === 'in' ? 'flow-in' : 'flow-out') + '">' + (h.type === 'in' ? '+' : '-') + h.qty + '</td><td>' + personCell + '</td><td>' + confirmerCell + '</td><td>' + lineCell + '</td><td>' + h.stockAfter + '</td><td>' + statusCell + '</td><td>' + h.remark + '</td></tr>';
+    html += '<tr><td>' + h.date + '</td><td>' + h.itemName + '</td><td class="' + (h.type === 'in' ? 'flow-in' : 'flow-out') + '">' + (h.type === 'in' ? '领入' : '领出') + '</td><td class="' + (h.type === 'in' ? 'flow-in' : 'flow-out') + '">' + (h.type === 'in' ? '+' : '-') + h.qty + '</td><td>' + personCell + '</td><td>' + confirmerCell + '</td><td>' + lineCell + '</td><td>' + h.stockAfter + '</td><td>' + statusCell + '</td><td>' + (h.remark || '') + '</td></tr>';
   });
   tbody.innerHTML = html;
 }
 
 async function clearHistory() {
+  if (!hasRole('super')) { showToast('仅超级用户可以清空记录'); return; }
   if (!confirm('确定清空所有出入库流水记录吗？\n库存数据不会受影响。')) return;
   history = [];
   await save(); renderHistory();
   showToast('流水记录已清空');
 }
 
-// ========== 导出CSV ==========
+// ========== 导出 CSV（管理用户及以上）==========
 function exportCSV() {
+  if (!hasRole('admin')) { showToast('权限不足：需要管理用户及以上'); return; }
   if (items.length === 0) { showToast('暂无数据可导出'); return; }
   const BOM = '\uFEFF';
   let csv = '编号,料号,辅料名称,分类,规格/型号,单位,累计领入,累计领出,当前库存,最低库存,起订量/月,状态\n';
   items.forEach(item => {
     const status = item.stock === 0 ? '缺货' : item.stock <= item.minStock ? '库存不足' : '正常';
-    csv += item.id + ',"' + (item.partNo || '') + '","' + item.name + '","' + item.category + '","' + (item.spec || '') + '",' + item.unit + ',' + item.totalIn + ',' + item.totalOut + ',' + item.stock + ',' + item.minStock + ',' + (item.minOrder || 0) + ',' + status + '\n';
+    csv += item.id + ',"' + (item.partNo || '') + '","' + item.name + '","' + item.category + '","' + (item.spec || '') + '",' + item.unit + ',' + item.totalIn + ',' + item.totalOut + ',' + item.stock + ',' + item.minStock + ',' + (item.minOrder || 0) + ',"' + status + '"\n';
   });
   if (pendingOuts.length > 0) {
     csv += '\n\n待确认领出订单\n订单号,日期,线体,领用人,辅料,数量,单位,备注\n';
     pendingOuts.forEach(o => { o.items.forEach(it => { csv += o.id + ',' + o.date + ',"' + o.line + '","' + o.person + '","' + it.itemName + '",' + it.qty + ',"' + it.unit + '","' + (o.remark || '') + '"\n'; }); });
   }
   csv += '\n\n出入库流水记录\n日期,辅料名称,类型,数量,领用人,确认人,线体,操作后库存,状态,备注\n';
-  history.forEach(h => { csv += h.date + ',"' + h.itemName + '",' + (h.type === 'in' ? '领入' : '领出') + ',' + (h.type === 'in' ? '+' : '-') + h.qty + ',"' + (h.person || '') + '","' + (h.confirmer || '') + '","' + (h.line || '') + '",' + h.stockAfter + ',' + (h.status === 'confirmed' ? '已确认' : '待确认') + ',"' + h.remark + '"\n'; });
-
+  history.forEach(h => { csv += h.date + ',"' + h.itemName + '",' + (h.type === 'in' ? '领入' : '领出') + ',' + (h.type === 'in' ? '+' : '-') + h.qty + ',"' + (h.person || '') + '","' + (h.confirmer || '') + '","' + (h.line || '') + '",' + h.stockAfter + ',' + (h.status === 'confirmed' ? '已确认' : '待确认') + ',"' + (h.remark || '') + '"\n'; });
   const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1196,11 +1545,86 @@ function exportCSV() {
   showToast('CSV 导出成功！');
 }
 
+// ========== 用户管理（超级用户）==========
+function openUserManage() {
+  if (!hasRole('super')) { showToast('仅超级用户可以管理用户'); return; }
+  renderUserList();
+  document.getElementById('userManageModal').classList.add('active');
+}
+
+function renderUserList() {
+  const container = document.getElementById('userListTable');
+  if (users.length === 0) { container.innerHTML = '<div class="empty"><p>暂无用户，请点击「新增用户」</p></div>'; return; }
+  let html = '<table class="user-table"><thead><tr><th>用户名</th><th>角色</th><th>操作</th></tr></thead><tbody>';
+  users.forEach((u, idx) => {
+    const roleMap = { 'super': '超级用户', 'admin': '管理用户', 'user': '普通用户' };
+    const clsMap = { 'super': 'role-super', 'admin': 'role-admin', 'user': 'role-user' };
+    // 不能删除自己，不能删除最后一个超级用户
+    let actions = '';
+    actions += '<button class="btn-outline" style="font-size:11px;padding:3px 8px" onclick="showResetPwd(' + idx + ')">重置密码</button>';
+    if (u.username !== currentUser.username) {
+      const superCount = users.filter(x => x.role === 'super').length;
+      if (!(u.role === 'super' && superCount <= 1)) {
+        actions += '<button class="btn-danger" style="font-size:11px;padding:3px 8px" onclick="deleteUser(' + idx + ')">删除</button>';
+      }
+    }
+    html += '<tr><td>' + u.username + '</td><td class="' + clsMap[u.role] + '">' + roleMap[u.role] + '</td><td><div class="action-btns">' + actions + '</div></td></tr>';
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function showAddUser() {
+  document.getElementById('newUsername').value = '';
+  document.getElementById('newPassword').value = '';
+  document.getElementById('newRole').value = 'user';
+  document.getElementById('addUserModal').classList.add('active');
+}
+
+async function submitAddUser() {
+  const username = document.getElementById('newUsername').value.trim();
+  const password = document.getElementById('newPassword').value;
+  const role = document.getElementById('newRole').value;
+  if (!username || !password) { showToast('请填写完整信息'); return; }
+  if (users.find(u => u.username === username)) { showToast('用户名已存在'); return; }
+  users.push({ username, password, role });
+  await save(); closeModal('addUserModal'); renderUserList();
+  showToast('用户 ' + username + ' 添加成功（' + roleLabel(role) + '）');
+}
+
+function deleteUser(idx) {
+  const u = users[idx];
+  if (u.username === currentUser.username) { showToast('不能删除当前登录用户'); return; }
+  showConfirm('del', '确认删除用户', '<div class="confirm-detail-row"><span class="label">用户名</span><span class="value">' + u.username + '</span></div><div class="confirm-detail-row"><span class="label">角色</span><span class="value">' + roleLabel(u.role) + '</span></div>', '确认删除', 'btn-danger', '', async function() {
+    users.splice(idx, 1);
+    await save(); renderUserList();
+    showToast('已删除用户：' + u.username);
+  });
+}
+
+function showResetPwd(idx) {
+  document.getElementById('resetUserId').value = idx;
+  document.getElementById('resetNewPwd').value = '';
+  document.getElementById('resetConfirmPwd').value = '';
+  document.getElementById('resetPwdModal').classList.add('active');
+}
+
+async function submitResetPwd() {
+  const idx = parseInt(document.getElementById('resetUserId').value);
+  const pwd1 = document.getElementById('resetNewPwd').value;
+  const pwd2 = document.getElementById('resetConfirmPwd').value;
+  if (!pwd1 || !pwd2) { showToast('请输入新密码'); return; }
+  if (pwd1 !== pwd2) { showToast('两次密码不一致'); return; }
+  users[idx].password = pwd1;
+  await save(); closeModal('resetPwdModal'); renderUserList();
+  showToast('密码已重置');
+}
+
 // ========== 模态框控制 ==========
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 document.querySelectorAll('.modal-overlay').forEach(el => { el.addEventListener('click', function(e) { if (e.target === el) el.classList.remove('active'); }); });
 
-// ========== 定时刷新数据（多人协作同步） ==========
+// ========== 定时刷新数据（多人协作同步）==========
 async function refreshData() {
   if (!gistId || !dataLoaded) return;
   try {
@@ -1218,9 +1642,7 @@ async function refreshData() {
         setSyncStatus('online', '已同步 ' + new Date().toLocaleTimeString('zh-CN'));
       }
     }
-  } catch (e) {
-    // 静默失败，不影响使用
-  }
+  } catch (e) { /* 静默失败 */ }
 }
 
 // ========== 初始化 ==========
@@ -1228,16 +1650,18 @@ async function refreshData() {
   try {
     await loadData();
     dataLoaded = true;
-    refreshPersonDatalist();
-    renderTable();
+    checkLogin();
+    if (currentUser) {
+      refreshPersonDatalist();
+      renderTable();
+    }
   } catch (e) {
     console.error('Init error:', e);
     showToast('初始化失败，请刷新页面重试');
   } finally {
     document.getElementById('loadingOverlay').classList.add('hidden');
   }
-
-  // 每 15 秒自动同步一次（多人协作时保持数据一致）
+  // 每 15 秒自动同步一次
   setInterval(refreshData, 15000);
 })();
 </script>
