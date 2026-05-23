@@ -1189,10 +1189,10 @@ function openBatchInModal() {
   if (items.length === 0) { showToast('请先添加辅料'); return; }
   document.getElementById('inDate').value = today();
   document.getElementById('inRemark').value = '';
-  let html = '<table class="flow-table batch-table"><thead><tr><th style="width:50px">编号</th><th>辅料名称</th><th>料号</th><th style="width:80px">单位</th><th style="width:90px">当前库存</th><th style="width:100px">领入数量</th></tr></thead><tbody>';
+  let html = '<table class="flow-table batch-table"><thead><tr><th>辅料名称</th><th style="width:80px">单位</th><th style="width:100px">当前库存</th><th style="width:100px">领入数量</th></tr></thead><tbody>';
   items.forEach(item => {
     const lowStock = (item.minStock > 0 && item.stock < item.minStock) ? ' style="color:#ea4335;font-weight:600"' : '';
-    html += '<tr><td>' + item.id + '</td><td>' + item.name + (item.spec ? ' (' + item.spec + ')' : '') + '</td><td style="color:#666;font-size:11px">' + (item.partNo || '-') + '</td><td>' + item.unit + '</td><td' + lowStock + '>' + item.stock + '</td><td><input type="number" class="qty-input" style="width:90px" id="in_' + item.id + '" min="0" value="0"></td></tr>';
+    html += '<tr><td>' + item.name + '</td><td>' + item.unit + '</td><td' + lowStock + '>' + item.stock + '</td><td><input type="number" class="qty-input" style="width:90px" id="in_' + item.id + '" min="0" value="0"></td></tr>';
   });
   html += '</tbody></table>';
   document.getElementById('batchInList').innerHTML = html;
@@ -1223,10 +1223,10 @@ function openBatchOutModal() {
   document.getElementById('outPerson').value = '';
   document.getElementById('outRemark').value = '';
   refreshPersonDatalist();
-  let html = '<table class="flow-table batch-table"><thead><tr><th style="width:50px">编号</th><th>辅料名称</th><th>料号</th><th style="width:80px">单位</th><th style="width:90px">当前库存</th><th style="width:100px">领出数量</th></tr></thead><tbody>';
+  let html = '<table class="flow-table batch-table"><thead><tr><th>辅料名称</th><th style="width:80px">单位</th><th style="width:100px">当前库存</th><th style="width:100px">领出数量</th></tr></thead><tbody>';
   items.forEach(item => {
     const lowStock = (item.stock === 0) ? ' style="color:#ea4335;font-weight:600"' : '';
-    html += '<tr><td>' + item.id + '</td><td>' + item.name + (item.spec ? ' (' + item.spec + ')' : '') + '</td><td style="color:#666;font-size:11px">' + (item.partNo || '-') + '</td><td>' + item.unit + '</td><td' + lowStock + '>' + item.stock + '</td><td><input type="number" class="qty-input" style="width:90px" id="out_' + item.id + '" min="0" max="' + item.stock + '" value="0"></td></tr>';
+    html += '<tr><td>' + item.name + '</td><td>' + item.unit + '</td><td' + lowStock + '>' + item.stock + '</td><td><input type="number" class="qty-input" style="width:90px" id="out_' + item.id + '" min="0" max="' + item.stock + '" value="0"></td></tr>';
   });
   html += '</tbody></table>';
   document.getElementById('batchOutList').innerHTML = html;
