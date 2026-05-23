@@ -1012,8 +1012,10 @@ function renderToolbar() {
   if (hasRole('admin')) {
     leftHtml += '<button class="btn-success" onclick="openBatchInModal()">批量领入</button>';
   }
-  // 批量领出（所有登录用户）
+  // 批量领出（管理用户及以上）
+  if (hasRole('admin')) {
   leftHtml += '<button class="btn-warning" onclick="openBatchOutModal()">批量领出</button>';
+  }
   // 待确认发货（所有登录用户）
   leftHtml += '<button class="btn-purple btn-pending-badge" onclick="showPendingList()">待确认发货<span class="badge-count" id="pendingBadge" style="display:none">0</span></button>';
   // 搜索框
