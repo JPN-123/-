@@ -1429,32 +1429,38 @@ function exportCSV() {
 // ========== 导出流水记录 Excel ==========
 function exportHistoryExcel() {
   if (!hasRole('admin')) { showToast('权限不足'); return; }
+  if (!dataLoaded) { showToast('数据正在加载中，请稍后再试'); return; }
   if (history.length === 0) { showToast('暂无流水记录可导出'); return; }
 
-  const rows = history.slice().reverse().map(h => ({
-    '日期': h.date,
-    '辅料名称': h.itemName,
-    '类型': h.type === 'in' ? '领入' : '领出',
-    '数量': h.type === 'in' ? '+' + h.qty : '-' + h.qty,
-    '领用人': h.person || '',
-    '确认人': h.confirmer || '',
-    '线体': h.line || '',
-    '操作后库存': h.stockAfter,
-    '状态': h.status === 'confirmed' ? '已确认' : '待确认',
-    '备注': h.remark || ''
-  }));
+  // 先重新从 Gist 拉取最新数据，确保导出完整
+  loadData().then(() => {
+    const rows = history.slice().reverse().map(h => ({
+      '日期': h.date,
+      '辅料名称': h.itemName,
+      '类型': h.type === 'in' ? '领入' : '领出',
+      '数量': h.type === 'in' ? '+' + h.qty : '-' + h.qty,
+      '领用人': h.person || '',
+      '确认人': h.confirmer || '',
+      '线体': h.line || '',
+      '操作后库存': h.stockAfter,
+      '状态': h.status === 'confirmed' ? '已确认' : '待确认',
+      '备注': h.remark || ''
+    }));
 
-  const ws = XLSX.utils.json_to_sheet(rows);
-  // 设置列宽
-  ws['!cols'] = [
-    { wch: 18 }, { wch: 30 }, { wch: 6 }, { wch: 8 },
-    { wch: 10 }, { wch: 10 }, { wch: 8 }, { wch: 10 },
-    { wch: 8 }, { wch: 20 }
-  ];
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, '流水记录');
-  XLSX.writeFile(wb, '辅料流水记录_' + today() + '.xlsx');
-  showToast('Excel 导出成功！');
+    const ws = XLSX.utils.json_to_sheet(rows);
+    // 设置列宽
+    ws['!cols'] = [
+      { wch: 18 }, { wch: 30 }, { wch: 6 }, { wch: 8 },
+      { wch: 10 }, { wch: 10 }, { wch: 8 }, { wch: 10 },
+      { wch: 8 }, { wch: 20 }
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '流水记录');
+    XLSX.writeFile(wb, '辅料流水记录_' + today() + '.xlsx');
+    showToast('Excel 导出成功！共 ' + rows.length + ' 条记录');
+  }).catch(() => {
+    showToast('导出失败，请检查网络连接后重试');
+  });
 }
 
 
@@ -1486,6 +1492,8 @@ async function refreshData() {
 
 
 // ========== 接收主页用户信息（iframe 模式）==========
+// 用 Promise 追踪 init 中 loadData 的完成状态
+let initLoadPromise = null;
 window.addEventListener('message', function(e) {
   if (!e.data || !e.data.type) return;
   if (e.data.type === 'PLATFORM_LOGIN') {
@@ -1500,9 +1508,21 @@ window.addEventListener('message', function(e) {
         renderTable();
       });
     } else {
-      showApp();
-      refreshPersonDatalist();
-      renderTable();
+      // token 已存在，等待 init 中的 loadData 完成后再显示 UI
+      var waitAndShow = function() {
+        if (initLoadPromise) {
+          initLoadPromise.then(function() {
+            showApp();
+            refreshPersonDatalist();
+            renderTable();
+          });
+        } else {
+          showApp();
+          refreshPersonDatalist();
+          renderTable();
+        }
+      };
+      waitAndShow();
     }
   }
   if (e.data.type === 'USERS_UPDATED' && e.data.users) {
@@ -1512,8 +1532,9 @@ window.addEventListener('message', function(e) {
 
 // ========== 初始化 ==========
 (async function init() {
+  initLoadPromise = loadData();
   try {
-    await loadData();
+    await initLoadPromise;
     dataLoaded = true;
     // login handled by parent platform
     if (currentUser) {
