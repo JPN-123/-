@@ -8,20 +8,54 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: #f0f2f5; color: #333; min-height: 100vh; }
 
-  .header {
+  /* 顶部栏 */
+  .top-bar {
     background: linear-gradient(135deg, #1a73e8, #0d47a1);
-    color: #fff; padding: 24px 32px;
+    color: #fff; padding: 16px 24px;
     display: flex; justify-content: space-between; align-items: center;
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    height: 56px;
   }
-  .header h1 { font-size: 24px; font-weight: 600; letter-spacing: 1px; }
-  .header .subtitle { font-size: 13px; opacity: 0.8; margin-top: 4px; }
+  .top-bar h1 { font-size: 18px; font-weight: 600; letter-spacing: 1px; }
+  .top-bar .subtitle { font-size: 12px; opacity: 0.8; margin-top: 2px; }
 
-  .container { max-width: 960px; margin: 40px auto; padding: 0 24px; }
+  /* 左侧导航 */
+  .sidebar {
+    position: fixed; top: 56px; left: 0; bottom: 0;
+    width: 220px; background: #fff;
+    border-right: 1px solid #e8e8e8;
+    padding: 16px 0;
+    overflow-y: auto;
+  }
+  .sidebar-title {
+    font-size: 12px; color: #999; font-weight: 600;
+    padding: 0 20px 12px; text-transform: uppercase; letter-spacing: 1px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 20px; margin: 2px 8px;
+    border-radius: 8px;
+    cursor: pointer; transition: all 0.2s;
+    text-decoration: none; color: #555;
+    font-size: 14px;
+  }
+  .nav-item:hover { background: #f0f7ff; color: #1a73e8; }
+  .nav-item.active { background: #e8f0fe; color: #1a73e8; font-weight: 600; }
+  .nav-item .icon { font-size: 18px; width: 24px; text-align: center; }
+  .nav-item.inactive { opacity: 0.4; cursor: default; }
+  .nav-item.inactive:hover { background: transparent; color: #555; }
 
-  .section-title { font-size: 16px; font-weight: 600; color: #555; margin-bottom: 20px; padding-left: 12px; border-left: 4px solid #1a73e8; }
+  /* 右侧内容区 */
+  .main-content {
+    margin-left: 220px; margin-top: 56px;
+    padding: 32px;
+    min-height: calc(100vh - 56px);
+  }
+  .welcome-title { font-size: 24px; font-weight: 600; color: #333; margin-bottom: 8px; }
+  .welcome-desc { font-size: 14px; color: #888; margin-bottom: 32px; }
 
+  /* 模块卡片（内容区内展示） */
   .modules { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-
   .module-card {
     background: #fff; border-radius: 12px; padding: 28px 24px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
@@ -37,9 +71,6 @@
   .module-card .icon { font-size: 36px; margin-bottom: 16px; }
   .module-card .name { font-size: 18px; font-weight: 600; color: #1a73e8; margin-bottom: 8px; }
   .module-card .desc { font-size: 13px; color: #888; line-height: 1.5; }
-  .module-card .arrow { position: absolute; right: 24px; top: 50%; transform: translateY(-50%); font-size: 20px; color: #ccc; }
-  .module-card .inner { position: relative; padding-right: 30px; }
-
   .module-card.inactive {
     opacity: 0.5; cursor: default;
     background: #fafafa; border: 2px dashed #ddd;
@@ -54,44 +85,55 @@
 </head>
 <body>
 
-<div class="header">
+<!-- 顶部栏 -->
+<div class="top-bar">
   <div>
     <h1>生产管理系统</h1>
     <div class="subtitle">模块化统一管理平台</div>
   </div>
 </div>
 
-<div class="container">
-  <div class="section-title">功能模块</div>
-  <div class="modules">
-    <a class="module-card" id="linkInventory">
-      <div class="inner">
-        <div class="icon">📦</div>
-        <div class="name">辅料库存管理</div>
-        <div class="desc">辅料信息管理、领入/领出登记、库存预警、流水记录</div>
-      </div>
-    </a>
-    <a class="module-card inactive">
-      <div class="inner">
-        <div class="icon">🔧</div>
-        <div class="name">配件库存管理</div>
-        <div class="desc">即将上线</div>
-      </div>
-    </a>
-  </div>
+<!-- 左侧导航 -->
+<div class="sidebar">
+  <div class="sidebar-title">功能模块</div>
+  <a class="nav-item active" id="navInventory">
+    <span class="icon">📦</span>
+    <span>辅料库存管理</span>
+  </a>
+  <a class="nav-item inactive">
+    <span class="icon">🔧</span>
+    <span>配件库存管理</span>
+  </a>
 </div>
 
-<div class="footer">Powered by WorkBuddy &middot; GitHub Pages</div>
+<!-- 右侧内容区 -->
+<div class="main-content">
+  <div class="welcome-title">欢迎使用生产管理系统</div>
+  <div class="welcome-desc">请从左侧导航选择功能模块</div>
+
+  <div class="modules">
+    <a class="module-card" id="linkInventory">
+      <div class="icon">📦</div>
+      <div class="name">辅料库存管理</div>
+      <div class="desc">辅料信息管理、领入/领出登记、库存预警、流水记录</div>
+    </a>
+    <a class="module-card inactive">
+      <div class="icon">🔧</div>
+      <div class="name">配件库存管理</div>
+      <div class="desc">即将上线</div>
+    </a>
+  </div>
+
+  <div class="footer">Powered by WorkBuddy &middot; GitHub Pages</div>
+</div>
 
 <script>
   // 自动透传 token 参数给子模块
   const params = new URLSearchParams(window.location.search);
   const token = params.get('token') || '';
-  if (token) {
-    document.getElementById('linkInventory').href = 'inventory.html?token=' + encodeURIComponent(token);
-  } else {
-    document.getElementById('linkInventory').href = 'inventory.html';
-  }
+  const inventoryUrl = token ? 'inventory.html?token=' + encodeURIComponent(token) : 'inventory.html';
+  document.getElementById('linkInventory').href = inventoryUrl;
+  document.getElementById('navInventory').href = inventoryUrl;
 </script>
 
 </body>
