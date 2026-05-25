@@ -7,6 +7,7 @@
 <style>
   * { margin:0; padding:0; box-sizing: border-box; }
   body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: #f0f2f5; color: #333; }
+  .hide-col { display: none; }
   .top-bar {
     position: sticky; top: 0; z-index: 100;
   }
@@ -329,8 +330,8 @@
         <th onclick="sortBy('category')">分类</th>
         <th onclick="sortBy('spec')">规格/型号</th>
         <th onclick="sortBy('unit')">单位</th>
-        <th onclick="sortBy('totalIn')">累计领入</th>
-        <th onclick="sortBy('totalOut')">累计领出</th>
+        <th class="hide-col">累计领入</th>
+        <th class="hide-col">累计领出</th>
         <th onclick="sortBy('stock')">当前库存</th>
         <th onclick="sortBy('minStock')">最低库存</th>
         <th onclick="sortBy('minOrder')">起订量/月</th>
@@ -1485,7 +1486,7 @@ function renderTable() {
       if (hasRole('super')) {
         actions += '<button class="btn-danger" style="font-size:11px;padding:3px 8px" onclick="deleteItem(' + item.id + ')">删除</button>';
       }
-      html += '<tr class="' + (isWarning ? 'row-warning' : '') + '"><td>' + item.id + '</td><td style="font-family:monospace;font-size:12px;color:#555">' + (item.partNo || '-') + '</td><td><strong>' + item.name + '</strong></td><td><span class="tag">' + item.category + '</span></td><td>' + (item.spec || '-') + '</td><td>' + item.unit + '</td><td class="flow-in">+' + item.totalIn + '</td><td class="flow-out">-' + item.totalOut + '</td><td><strong>' + item.stock + '</strong></td><td>' + item.minStock + '</td><td>' + (item.minOrder > 0 ? item.minOrder : '-') + '</td><td>' + statusBadge + '</td><td><div class="action-btns">' + actions + '</div></td></tr>';
+      html += '<tr class="' + (isWarning ? 'row-warning' : '') + '"><td>' + item.id + '</td><td style="font-family:monospace;font-size:12px;color:#555">' + (item.partNo || '-') + '</td><td><strong>' + item.name + '</strong></td><td><span class="tag">' + item.category + '</span></td><td>' + (item.spec || '-') + '</td><td>' + item.unit + '</td><td class="flow-in hide-col">+' + item.totalIn + '</td><td class="flow-out hide-col">-' + item.totalOut + '</td><td><strong>' + item.stock + '</strong></td><td>' + item.minStock + '</td><td>' + (item.minOrder > 0 ? item.minOrder : '-') + '</td><td>' + statusBadge + '</td><td><div class="action-btns">' + actions + '</div></td></tr>';
     });
     tbody.innerHTML = html;
   }
