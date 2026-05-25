@@ -196,35 +196,6 @@
   .pending-card-items { font-size: 12px; color: #666; margin-bottom: 8px; padding: 6px 10px; background: #f5f5f5; border-radius: 4px; }
   .pending-card-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
-  /* 登录遮罩 */
-  .login-overlay {
-    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-    background: linear-gradient(135deg, #1a73e8, #0d47a1);
-    z-index: 5000; display: flex; justify-content: center; align-items: center;
-  }
-  .login-box {
-    background: #fff; border-radius: 16px; padding: 40px 36px;
-    width: 380px; max-width: 90vw;
-    box-shadow: 0 16px 48px rgba(0,0,0,0.3);
-    text-align: center;
-  }
-  .login-box h2 { font-size: 22px; color: #1a73e8; margin-bottom: 8px; }
-  .login-box .subtitle { font-size: 13px; color: #999; margin-bottom: 28px; }
-  .login-box .form-group { text-align: left; margin-bottom: 18px; }
-  .login-box .form-group label { font-size: 13px; color: #555; margin-bottom: 6px; display: block; }
-  .login-box .form-group input {
-    width: 100%; padding: 10px 14px; font-size: 14px;
-    border: 1px solid #d0d0d0; border-radius: 8px;
-  }
-  .login-box .form-group input:focus { border-color: #1a73e8; outline: none; }
-  .login-box button {
-    width: 100%; padding: 12px; font-size: 15px; font-weight: 600;
-    background: #1a73e8; color: #fff; border: none; border-radius: 8px;
-    cursor: pointer; transition: background 0.2s;
-  }
-  .login-box button:hover { background: #1557b0; }
-  .login-box .error-msg { color: #ea4335; font-size: 12px; margin-top: 8px; display: none; }
-  .login-box .hint { font-size: 11px; color: #999; margin-top: 16px; }
 
   /* 加载遮罩 */
   .loading-overlay {
@@ -267,23 +238,6 @@
 </head>
 <body>
 
-<!-- 登录遮罩 -->
-<div class="login-overlay" id="loginOverlay">
-  <div class="login-box">
-    <h2>🔐 辅料库存管理</h2>
-    <div class="subtitle">请输入用户名和密码登录</div>
-    <div class="form-group">
-      <label>用户名</label>
-      <input type="text" id="loginUsername" placeholder="请输入用户名" autocomplete="username">
-    </div>
-    <div class="form-group">
-      <label>密码</label>
-      <input type="password" id="loginPassword" placeholder="请输入密码" autocomplete="current-password">
-    </div>
-    <button onclick="doLogin()">登 录</button>
-    <div class="error-msg" id="loginError"></div>
-    <div class="hint">提示：首次使用请联系管理员创建账号</div>
-  </div>
 </div>
 
 <div class="loading-overlay" id="loadingOverlay">
@@ -668,65 +622,16 @@
   </div>
 </div>
 
-<!-- 用户管理模态框 -->
-<div class="modal-overlay" id="userManageModal">
-  <div class="modal" style="width:540px">
-    <h2>用户管理</h2>
-    <div style="margin-bottom:12px">
-      <button class="btn-primary" onclick="showAddUser()">+ 新增用户</button>
-    </div>
-    <div id="userListTable"></div>
-    <div class="modal-actions">
-      <button class="btn-outline" onclick="closeModal('userManageModal')">关闭</button>
-    </div>
-  </div>
+
+
 </div>
 
-<!-- 新增用户模态框 -->
-<div class="modal-overlay" id="addUserModal">
-  <div class="modal">
-    <h2>新增用户</h2>
-    <div class="form-group">
-      <label>用户名 <span class="required">*</span></label>
-      <input type="text" id="newUsername" placeholder="输入用户名">
-    </div>
-    <div class="form-group">
-      <label>密码 <span class="required">*</span></label>
-      <input type="password" id="newPassword" placeholder="输入密码">
-    </div>
-    <div class="form-group">
-      <label>角色 <span class="required">*</span></label>
-      <select id="newRole">
-        <option value="user">普通用户（仅领出）</option>
-        <option value="admin">管理用户（领入+领出）</option>
-        <option value="super">超级用户（全部权限）</option>
-      </select>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-outline" onclick="closeModal('addUserModal')">取消</button>
-      <button class="btn-primary" onclick="submitAddUser()">确认添加</button>
-    </div>
-  </div>
+
+
 </div>
 
-<!-- 重置密码模态框 -->
-<div class="modal-overlay" id="resetPwdModal">
-  <div class="modal">
-    <h2>重置密码</h2>
-    <input type="hidden" id="resetUserId">
-    <div class="form-group">
-      <label>新密码 <span class="required">*</span></label>
-      <input type="password" id="resetNewPwd" placeholder="输入新密码">
-    </div>
-    <div class="form-group">
-      <label>确认新密码 <span class="required">*</span></label>
-      <input type="password" id="resetConfirmPwd" placeholder="再次输入新密码">
-    </div>
-    <div class="modal-actions">
-      <button class="btn-outline" onclick="closeModal('resetPwdModal')">取消</button>
-      <button class="btn-primary" onclick="submitResetPwd()">确认重置</button>
-    </div>
-  </div>
+
+
 </div>
 
 <!-- 同步状态指示器 -->
@@ -931,70 +836,12 @@ async function save() {
 }
 
 // ========== 登录系统 ==========
-function checkLogin() {
-  const saved = localStorage.getItem('currentUser');
-  if (saved) {
-    try {
-      const u = JSON.parse(saved);
-      // 验证用户是否还存在于 users 列表
-      const exists = users.find(x => x.username === u.username && x.role === u.role);
-      if (exists) {
-        currentUser = u;
-        showApp();
-        return;
-      }
-    } catch(e) {}
-  }
-  // 未登录，显示登录框
-  document.getElementById('loginOverlay').style.display = 'flex';
-  document.getElementById('headerSection').style.display = 'none';
-  document.getElementById('toolbarSection').style.display = 'none';
-  document.getElementById('tableSection').style.display = 'none';
-}
 
-function doLogin() {
-  const username = document.getElementById('loginUsername').value.trim();
-  const password = document.getElementById('loginPassword').value;
-  const errorEl = document.getElementById('loginError');
 
-  if (!username || !password) {
-    errorEl.textContent = '请输入用户名和密码';
-    errorEl.style.display = 'block';
-    return;
-  }
 
-  const user = users.find(u => u.username === username && u.password === password);
-  if (!user) {
-    errorEl.textContent = '用户名或密码错误';
-    errorEl.style.display = 'block';
-    return;
-  }
 
-  currentUser = { username: user.username, role: user.role };
-  localStorage.setItem('currentUser', JSON.stringify(currentUser));
-  errorEl.style.display = 'none';
-  document.getElementById('loginOverlay').style.display = 'none';
-  showApp();
-  showToast('欢迎回来，' + username + '（' + roleLabel(user.role) + '）');
-}
 
-function doLogout() {
-  currentUser = null;
-  localStorage.removeItem('currentUser');
-  document.getElementById('loginOverlay').style.display = 'flex';
-  document.getElementById('headerSection').style.display = 'none';
-  document.getElementById('toolbarSection').style.display = 'none';
-  document.getElementById('tableSection').style.display = 'none';
-  document.getElementById('loginUsername').value = '';
-  document.getElementById('loginPassword').value = '';
-}
 
-// 回车登录
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Enter' && document.getElementById('loginOverlay').style.display === 'flex') {
-    doLogin();
-  }
-});
 
 function showApp() {
   renderUserInfo();
@@ -1013,7 +860,7 @@ function renderUserInfo() {
   const clsMap = { 'super': 'role-super', 'admin': 'role-admin', 'user': 'role-user' };
   el.innerHTML = '<span class="role-tag ' + clsMap[currentUser.role] + '">' + roleMap[currentUser.role] + '</span>' +
     '<span style="color:rgba(255,255,255,0.9)">' + currentUser.username + '</span>' +
-    '<button onclick="doLogout()">退出</button>';
+    '';
 }
 
 function renderToolbar() {
@@ -1041,9 +888,7 @@ function renderToolbar() {
 
   // 右侧工具栏
   // 用户管理（仅超级用户）
-  if (hasRole('super')) {
-    rightHtml += '<button class="btn-outline" onclick="openUserManage()">用户管理</button>';
-  }
+
   // 导出 CSV（管理用户及以上）
   if (hasRole('admin')) {
     rightHtml += '<button class="btn-outline" onclick="exportCSV()">导出 CSV</button>';
@@ -1567,80 +1412,7 @@ function exportCSV() {
   showToast('CSV 导出成功！');
 }
 
-// ========== 用户管理（超级用户）==========
-function openUserManage() {
-  if (!hasRole('super')) { showToast('仅超级用户可以管理用户'); return; }
-  renderUserList();
-  document.getElementById('userManageModal').classList.add('active');
-}
 
-function renderUserList() {
-  const container = document.getElementById('userListTable');
-  if (users.length === 0) { container.innerHTML = '<div class="empty"><p>暂无用户，请点击「新增用户」</p></div>'; return; }
-  let html = '<table class="user-table"><thead><tr><th>用户名</th><th>角色</th><th>操作</th></tr></thead><tbody>';
-  users.forEach((u, idx) => {
-    const roleMap = { 'super': '超级用户', 'admin': '管理用户', 'user': '普通用户' };
-    const clsMap = { 'super': 'role-super', 'admin': 'role-admin', 'user': 'role-user' };
-    // 不能删除自己，不能删除最后一个超级用户
-    let actions = '';
-    actions += '<button class="btn-outline" style="font-size:11px;padding:3px 8px" onclick="showResetPwd(' + idx + ')">重置密码</button>';
-    if (u.username !== currentUser.username) {
-      const superCount = users.filter(x => x.role === 'super').length;
-      if (!(u.role === 'super' && superCount <= 1)) {
-        actions += '<button class="btn-danger" style="font-size:11px;padding:3px 8px" onclick="deleteUser(' + idx + ')">删除</button>';
-      }
-    }
-    html += '<tr><td>' + u.username + '</td><td class="' + clsMap[u.role] + '">' + roleMap[u.role] + '</td><td><div class="action-btns">' + actions + '</div></td></tr>';
-  });
-  html += '</tbody></table>';
-  container.innerHTML = html;
-}
-
-function showAddUser() {
-  document.getElementById('newUsername').value = '';
-  document.getElementById('newPassword').value = '';
-  document.getElementById('newRole').value = 'user';
-  document.getElementById('addUserModal').classList.add('active');
-}
-
-async function submitAddUser() {
-  const username = document.getElementById('newUsername').value.trim();
-  const password = document.getElementById('newPassword').value;
-  const role = document.getElementById('newRole').value;
-  if (!username || !password) { showToast('请填写完整信息'); return; }
-  if (users.find(u => u.username === username)) { showToast('用户名已存在'); return; }
-  users.push({ username, password, role });
-  await save(); closeModal('addUserModal'); renderUserList();
-  showToast('用户 ' + username + ' 添加成功（' + roleLabel(role) + '）');
-}
-
-function deleteUser(idx) {
-  const u = users[idx];
-  if (u.username === currentUser.username) { showToast('不能删除当前登录用户'); return; }
-  showConfirm('del', '确认删除用户', '<div class="confirm-detail-row"><span class="label">用户名</span><span class="value">' + u.username + '</span></div><div class="confirm-detail-row"><span class="label">角色</span><span class="value">' + roleLabel(u.role) + '</span></div>', '确认删除', 'btn-danger', '', async function() {
-    users.splice(idx, 1);
-    await save(); renderUserList();
-    showToast('已删除用户：' + u.username);
-  });
-}
-
-function showResetPwd(idx) {
-  document.getElementById('resetUserId').value = idx;
-  document.getElementById('resetNewPwd').value = '';
-  document.getElementById('resetConfirmPwd').value = '';
-  document.getElementById('resetPwdModal').classList.add('active');
-}
-
-async function submitResetPwd() {
-  const idx = parseInt(document.getElementById('resetUserId').value);
-  const pwd1 = document.getElementById('resetNewPwd').value;
-  const pwd2 = document.getElementById('resetConfirmPwd').value;
-  if (!pwd1 || !pwd2) { showToast('请输入新密码'); return; }
-  if (pwd1 !== pwd2) { showToast('两次密码不一致'); return; }
-  users[idx].password = pwd1;
-  await save(); closeModal('resetPwdModal'); renderUserList();
-  showToast('密码已重置');
-}
 
 // ========== 模态框控制 ==========
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
@@ -1667,12 +1439,27 @@ async function refreshData() {
   } catch (e) { /* 静默失败 */ }
 }
 
+
+// ========== 接收主页用户信息（iframe 模式）==========
+window.addEventListener('message', function(e) {
+  if (!e.data || !e.data.type) return;
+  if (e.data.type === 'PLATFORM_LOGIN') {
+    currentUser = e.data.user;
+    showApp();
+    refreshPersonDatalist();
+    renderTable();
+  }
+  if (e.data.type === 'USERS_UPDATED' && e.data.users) {
+    users = e.data.users;
+  }
+});
+
 // ========== 初始化 ==========
 (async function init() {
   try {
     await loadData();
     dataLoaded = true;
-    checkLogin();
+    // login handled by parent platform
     if (currentUser) {
       refreshPersonDatalist();
       renderTable();
