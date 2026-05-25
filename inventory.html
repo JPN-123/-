@@ -447,6 +447,11 @@
       <input type="date" id="inDate">
     </div>
     <div class="form-group">
+      <label>领入人 <span class="required">*</span></label>
+      <input type="text" id="inPerson" list="inPersonList" placeholder="请输入领入人姓名">
+      <datalist id="inPersonList"></datalist>
+    </div>
+    <div class="form-group">
       <label>备注（选填）</label>
       <input type="text" id="inRemark" placeholder="如：采购入库、退料入库">
     </div>
@@ -508,6 +513,11 @@
     <div class="form-group">
       <label>日期</label>
       <input type="date" id="quickInDate">
+    </div>
+    <div class="form-group">
+      <label>领入人 <span class="required">*</span></label>
+      <input type="text" id="quickInPerson" list="quickInPersonList" placeholder="请输入领入人姓名">
+      <datalist id="quickInPersonList"></datalist>
     </div>
     <div class="form-group">
       <label>备注</label>
@@ -938,10 +948,14 @@ function getLineClass(line) {
 function refreshPersonDatalist() {
   const dl1 = document.getElementById('personList');
   const dl2 = document.getElementById('personListQuick');
+  const dl3 = document.getElementById('inPersonList');
+  const dl4 = document.getElementById('quickInPersonList');
   let html = '';
   persons.forEach(p => { html += '<option value="' + p + '">'; });
   if (dl1) dl1.innerHTML = html;
   if (dl2) dl2.innerHTML = html;
+  if (dl3) dl3.innerHTML = html;
+  if (dl4) dl4.innerHTML = html;
 }
 function refreshConfirmerDatalist() {
   const dl = document.getElementById('confirmerDatalist');
@@ -1060,6 +1074,8 @@ function openBatchInModal() {
   if (items.length === 0) { showToast('请先添加辅料'); return; }
   document.getElementById('inDate').value = today();
   document.getElementById('inRemark').value = '';
+  document.getElementById('inPerson').value = '';
+  refreshPersonDatalist();
   let html = '<table class="flow-table batch-table"><thead><tr><th>辅料名称</th><th style="width:80px">单位</th><th style="width:100px">当前库存</th><th style="width:100px">领入数量</th></tr></thead><tbody>';
   items.forEach(item => {
     const lowStock = (item.minStock > 0 && item.stock < item.minStock) ? ' style="color:#ea4335;font-weight:600"' : '';
@@ -1073,12 +1089,14 @@ function openBatchInModal() {
 async function submitBatchIn() {
   const date = document.getElementById('inDate').value;
   const remark = document.getElementById('inRemark').value.trim();
+  const person = document.getElementById('inPerson').value.trim();
+  if (!person) { showToast('请输入领入人姓名'); return; }
   let count = 0;
   items.forEach(item => {
     const qty = parseInt(document.getElementById('in_' + item.id).value) || 0;
     if (qty > 0) {
       item.totalIn += qty; item.stock += qty;
-      history.push({ date, itemId: item.id, itemName: item.name, type: 'in', qty, stockAfter: item.stock, person: '', confirmer: '', line: '', remark: remark || '领入', status: 'confirmed' });
+      history.push({ date, itemId: item.id, itemName: item.name, type: 'in', qty, stockAfter: item.stock, person, confirmer: '', line: '', remark: remark || '领入', status: 'confirmed' });
       count++;
     }
   });
@@ -1140,6 +1158,8 @@ function quickIn(id) {
   document.getElementById('quickInQty').value = '1';
   document.getElementById('quickInDate').value = today();
   document.getElementById('quickInRemark').value = '';
+  document.getElementById('quickInPerson').value = '';
+  refreshPersonDatalist();
   document.getElementById('quickInModal').classList.add('active');
 }
 
@@ -1148,11 +1168,13 @@ async function submitQuickIn() {
   const qty = parseInt(document.getElementById('quickInQty').value) || 0;
   const date = document.getElementById('quickInDate').value;
   const remark = document.getElementById('quickInRemark').value.trim();
+  const person = document.getElementById('quickInPerson').value.trim();
   if (qty <= 0) { showToast('请输入有效数量'); return; }
+  if (!person) { showToast('请输入领入人姓名'); return; }
   const item = items.find(i => i.id === id);
   if (!item) return;
   item.totalIn += qty; item.stock += qty;
-  history.push({ date, itemId: item.id, itemName: item.name, type: 'in', qty, stockAfter: item.stock, person: '', confirmer: '', line: '', remark: remark || '领入', status: 'confirmed' });
+  history.push({ date, itemId: item.id, itemName: item.name, type: 'in', qty, stockAfter: item.stock, person, confirmer: '', line: '', remark: remark || '领入', status: 'confirmed' });
   await save(); closeModal('quickInModal'); renderTable();
   showToast('领入成功：' + item.name + ' x ' + qty);
 }
