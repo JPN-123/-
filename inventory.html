@@ -641,7 +641,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
-
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 <script>
 // ============================================================
 //  在线版 - 数据通过 GitHub Gist 云端存储
@@ -899,6 +899,10 @@ function renderToolbar() {
   // 右侧工具栏
   // 用户管理（仅超级用户）
 
+  // 导出流水记录 Excel（管理用户及以上）
+  if (hasRole('admin')) {
+    rightHtml += '<button class="btn-outline" onclick="exportHistoryExcel()">导出流水记录</button>';
+  }
   // 导出 CSV（管理用户及以上）
   if (hasRole('admin')) {
     rightHtml += '<button class="btn-outline" onclick="exportCSV()">导出 CSV</button>';
@@ -1420,6 +1424,37 @@ function exportCSV() {
   a.href = url; a.download = '辅料库存_' + today() + '.csv';
   a.click(); URL.revokeObjectURL(url);
   showToast('CSV 导出成功！');
+}
+
+// ========== 导出流水记录 Excel ==========
+function exportHistoryExcel() {
+  if (!hasRole('admin')) { showToast('权限不足'); return; }
+  if (history.length === 0) { showToast('暂无流水记录可导出'); return; }
+
+  const rows = history.slice().reverse().map(h => ({
+    '日期': h.date,
+    '辅料名称': h.itemName,
+    '类型': h.type === 'in' ? '领入' : '领出',
+    '数量': h.type === 'in' ? '+' + h.qty : '-' + h.qty,
+    '领用人': h.person || '',
+    '确认人': h.confirmer || '',
+    '线体': h.line || '',
+    '操作后库存': h.stockAfter,
+    '状态': h.status === 'confirmed' ? '已确认' : '待确认',
+    '备注': h.remark || ''
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  // 设置列宽
+  ws['!cols'] = [
+    { wch: 18 }, { wch: 30 }, { wch: 6 }, { wch: 8 },
+    { wch: 10 }, { wch: 10 }, { wch: 8 }, { wch: 10 },
+    { wch: 8 }, { wch: 20 }
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '流水记录');
+  XLSX.writeFile(wb, '辅料流水记录_' + today() + '.xlsx');
+  showToast('Excel 导出成功！');
 }
 
 
