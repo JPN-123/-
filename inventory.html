@@ -651,7 +651,7 @@
 
 const GIST_ID_KEY = 'inventory_gist_id';
 
-const GITHUB_TOKEN = new URLSearchParams(window.location.search).get('token') || '';
+let GITHUB_TOKEN = new URLSearchParams(window.location.search).get('token') || '';
 const GIST_API = 'https://api.github.com/gists';
 const GIST_FILENAME = 'inventory_data.json';
 
@@ -710,8 +710,11 @@ function setSyncStatus(status, text) {
 
 async function loadData() {
   if (!GITHUB_TOKEN) {
-    setSyncStatus('error', '未配置Token');
-    showToast('请在地址栏添加 ?token=xxx 参数');
+    // 无 token 时使用本地默认数据
+    setSyncStatus('offline', '本地模式');
+    const defaultData = getDefaultData();
+    applyData(defaultData);
+    dataLoaded = true;
     return;
   }
   const id = getGistId();
@@ -1445,9 +1448,20 @@ window.addEventListener('message', function(e) {
   if (!e.data || !e.data.type) return;
   if (e.data.type === 'PLATFORM_LOGIN') {
     currentUser = e.data.user;
-    showApp();
-    refreshPersonDatalist();
-    renderTable();
+    // 如果主页传了 token 且当前没有，使用主页的 token
+    if (e.data.token && !GITHUB_TOKEN) {
+      GITHUB_TOKEN = e.data.token;
+      // 有 token 了，加载 Gist 数据
+      loadData().then(() => {
+        showApp();
+        refreshPersonDatalist();
+        renderTable();
+      });
+    } else {
+      showApp();
+      refreshPersonDatalist();
+      renderTable();
+    }
   }
   if (e.data.type === 'USERS_UPDATED' && e.data.users) {
     users = e.data.users;
