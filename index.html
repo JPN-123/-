@@ -48,39 +48,19 @@
   /* 右侧内容区 */
   .main-content {
     margin-left: 220px; margin-top: 56px;
-    padding: 32px;
-    min-height: calc(100vh - 56px);
+    height: calc(100vh - 56px);
+    position: relative;
   }
-  .welcome-title { font-size: 24px; font-weight: 600; color: #333; margin-bottom: 8px; }
-  .welcome-desc { font-size: 14px; color: #888; margin-bottom: 32px; }
+  .main-content iframe {
+    width: 100%; height: 100%; border: none;
+  }
 
-  /* 模块卡片（内容区内展示） */
-  .modules { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-  .module-card {
-    background: #fff; border-radius: 12px; padding: 28px 24px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    cursor: pointer; transition: all 0.25s ease;
-    border: 2px solid transparent;
-    text-decoration: none; color: inherit; display: block;
+  /* 欢迎页（默认不显示） */
+  .welcome-page {
+    padding: 32px; display: none;
   }
-  .module-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(26,115,232,0.15);
-    border-color: #1a73e8;
-  }
-  .module-card .icon { font-size: 36px; margin-bottom: 16px; }
-  .module-card .name { font-size: 18px; font-weight: 600; color: #1a73e8; margin-bottom: 8px; }
-  .module-card .desc { font-size: 13px; color: #888; line-height: 1.5; }
-  .module-card.inactive {
-    opacity: 0.5; cursor: default;
-    background: #fafafa; border: 2px dashed #ddd;
-  }
-  .module-card.inactive:hover {
-    transform: none; box-shadow: none; border-color: #ddd;
-  }
-  .module-card.inactive .name { color: #999; }
-
-  .footer { text-align: center; padding: 32px 24px; color: #bbb; font-size: 12px; }
+  .welcome-page .welcome-title { font-size: 24px; font-weight: 600; color: #333; margin-bottom: 8px; }
+  .welcome-page .welcome-desc { font-size: 14px; color: #888; margin-bottom: 32px; }
 </style>
 </head>
 <body>
@@ -96,7 +76,7 @@
 <!-- 左侧导航 -->
 <div class="sidebar">
   <div class="sidebar-title">功能模块</div>
-  <a class="nav-item active" id="navInventory">
+  <a class="nav-item active" data-module="inventory" onclick="switchModule('inventory')">
     <span class="icon">📦</span>
     <span>辅料库存管理</span>
   </a>
@@ -108,32 +88,42 @@
 
 <!-- 右侧内容区 -->
 <div class="main-content">
-  <div class="welcome-title">欢迎使用生产管理系统</div>
-  <div class="welcome-desc">请从左侧导航选择功能模块</div>
-
-  <div class="modules">
-    <a class="module-card" id="linkInventory">
-      <div class="icon">📦</div>
-      <div class="name">辅料库存管理</div>
-      <div class="desc">辅料信息管理、领入/领出登记、库存预警、流水记录</div>
-    </a>
-    <a class="module-card inactive">
-      <div class="icon">🔧</div>
-      <div class="name">配件库存管理</div>
-      <div class="desc">即将上线</div>
-    </a>
-  </div>
-
-  <div class="footer">Powered by WorkBuddy &middot; GitHub Pages</div>
+  <iframe id="moduleFrame" src="inventory.html"></iframe>
 </div>
 
 <script>
-  // 自动透传 token 参数给子模块
+  // 模块地址映射
+  const modules = {
+    inventory: 'inventory.html'
+  };
+
+  // 自动透传 token
   const params = new URLSearchParams(window.location.search);
   const token = params.get('token') || '';
-  const inventoryUrl = token ? 'inventory.html?token=' + encodeURIComponent(token) : 'inventory.html';
-  document.getElementById('linkInventory').href = inventoryUrl;
-  document.getElementById('navInventory').href = inventoryUrl;
+
+  function getModuleUrl(name) {
+    let url = modules[name];
+    if (token) {
+      url += (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
+    }
+    return url;
+  }
+
+  function switchModule(name) {
+    if (!modules[name]) return;
+    // 更新导航高亮
+    document.querySelectorAll('.nav-item').forEach(function(item) {
+      item.classList.remove('active');
+    });
+    document.querySelector('[data-module="' + name + '"]').classList.add('active');
+    // 切换 iframe
+    document.getElementById('moduleFrame').src = getModuleUrl(name);
+  }
+
+  // 初始加载时透传 token 到 iframe
+  if (token) {
+    document.getElementById('moduleFrame').src = getModuleUrl('inventory');
+  }
 </script>
 
 </body>
