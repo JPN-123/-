@@ -1074,7 +1074,7 @@ function openBatchInModal() {
   if (items.length === 0) { showToast('请先添加辅料'); return; }
   document.getElementById('inDate').value = today();
   document.getElementById('inRemark').value = '';
-  document.getElementById('inPerson').value = '';
+  document.getElementById('inPerson').value = currentUser || '';
   refreshPersonDatalist();
   let html = '<table class="flow-table batch-table"><thead><tr><th>辅料名称</th><th style="width:80px">单位</th><th style="width:100px">当前库存</th><th style="width:100px">领入数量</th></tr></thead><tbody>';
   items.forEach(item => {
@@ -1109,7 +1109,7 @@ function openBatchOutModal() {
   if (items.length === 0) { showToast('请先添加辅料'); return; }
   document.getElementById('outDate').value = today();
   document.getElementById('outLine').value = 'A线';
-  document.getElementById('outPerson').value = '';
+  document.getElementById('outPerson').value = currentUser || '';
   document.getElementById('outRemark').value = '';
   refreshPersonDatalist();
   let html = '<table class="flow-table batch-table"><thead><tr><th>辅料名称</th><th style="width:80px">单位</th><th style="width:100px">当前库存</th><th style="width:100px">领出数量</th></tr></thead><tbody>';
@@ -1158,7 +1158,7 @@ function quickIn(id) {
   document.getElementById('quickInQty').value = '1';
   document.getElementById('quickInDate').value = today();
   document.getElementById('quickInRemark').value = '';
-  document.getElementById('quickInPerson').value = '';
+  document.getElementById('quickInPerson').value = currentUser || '';
   refreshPersonDatalist();
   document.getElementById('quickInModal').classList.add('active');
 }
@@ -1186,7 +1186,7 @@ function quickOut(id) {
   document.getElementById('quickOutTitle').textContent = '领出登记 — ' + item.name;
   document.getElementById('quickOutId').value = id;
   document.getElementById('quickOutLine').value = 'A线';
-  document.getElementById('quickOutPerson').value = '';
+  document.getElementById('quickOutPerson').value = currentUser || '';
   document.getElementById('quickOutQty').value = '1';
   document.getElementById('quickOutQty').max = item.stock;
   document.getElementById('quickOutDate').value = today();
