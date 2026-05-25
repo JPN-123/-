@@ -573,9 +573,13 @@ function notifyIframe(type, data) {
 (async function init() {
   const ok = await loadGistData();
   document.getElementById('loadingOverlay').classList.add('hidden');
-  if (!ok) return;
 
-  // 检查是否已登录（sessionStorage，iframe 内无法共享所以用 sessionStorage 也不行，直接每次登录）
+  if (!ok) {
+    // Token 缺失或 Gist 加载失败，使用本地默认用户
+    users = [{ username: 'admin', password: '8888', role: 'super' }];
+    showToast('未配置 Token，使用本地默认账号（admin / 8888）');
+  }
+
   document.getElementById('loginOverlay').classList.remove('hidden');
 })();
 </script>
