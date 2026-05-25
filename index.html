@@ -301,7 +301,15 @@
 //  用户数据通过 GitHub Gist 云端存储
 // ============================================================
 
-const GITHUB_TOKEN = new URLSearchParams(window.location.search).get('token') || '';
+// Token 获取优先级：URL 参数 > localStorage > 内置默认值(空)
+let GITHUB_TOKEN = new URLSearchParams(window.location.search).get('token') || '';
+if (!GITHUB_TOKEN) {
+  GITHUB_TOKEN = localStorage.getItem('platform_token') || '';
+}
+// 如果 URL 带了 token，保存到 localStorage
+if (new URLSearchParams(window.location.search).get('token')) {
+  localStorage.setItem('platform_token', GITHUB_TOKEN);
+}
 const GIST_API = 'https://api.github.com/gists';
 const GIST_FILENAME = 'inventory_data.json';
 const PRESET_GIST_ID = '8cd0ec9b1c7ba76a3186a4db9f6d8e80';
