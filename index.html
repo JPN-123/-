@@ -8,6 +8,37 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: #f0f2f5; color: #333; min-height: 100vh; }
 
+  /* 登录遮罩 */
+  .login-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(135deg, #1a73e8, #0d47a1);
+    z-index: 5000; display: flex; justify-content: center; align-items: center;
+  }
+  .login-overlay.hidden { display: none; }
+  .login-box {
+    background: #fff; border-radius: 16px; padding: 40px 36px;
+    width: 380px; max-width: 90vw;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.3);
+    text-align: center;
+  }
+  .login-box h2 { font-size: 22px; color: #1a73e8; margin-bottom: 8px; }
+  .login-box .subtitle { font-size: 13px; color: #999; margin-bottom: 28px; }
+  .login-box .form-group { text-align: left; margin-bottom: 18px; }
+  .login-box .form-group label { font-size: 13px; color: #555; margin-bottom: 6px; display: block; }
+  .login-box .form-group input {
+    width: 100%; padding: 10px 14px; font-size: 14px;
+    border: 1px solid #d0d0d0; border-radius: 8px;
+  }
+  .login-box .form-group input:focus { border-color: #1a73e8; outline: none; }
+  .login-box .login-btn {
+    width: 100%; padding: 12px; font-size: 15px; font-weight: 600;
+    background: #1a73e8; color: #fff; border: none; border-radius: 8px;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .login-box .login-btn:hover { background: #1557b0; }
+  .login-box .error-msg { color: #ea4335; font-size: 12px; margin-top: 8px; display: none; }
+  .login-box .hint { font-size: 11px; color: #999; margin-top: 16px; }
+
   /* 顶部栏 */
   .top-bar {
     background: linear-gradient(135deg, #1a73e8, #0d47a1);
@@ -18,6 +49,16 @@
   }
   .top-bar h1 { font-size: 18px; font-weight: 600; letter-spacing: 1px; }
   .top-bar .subtitle { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+  .top-bar .user-info { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .top-bar .user-info .role-tag { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .top-bar .user-info .role-super { background: #fce8e6; color: #c5221f; }
+  .top-bar .user-info .role-admin { background: #e8f0fe; color: #fff; }
+  .top-bar .user-info .role-user { background: #e8f5e9; color: #fff; }
+  .top-bar .user-info button {
+    background: rgba(255,255,255,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.4);
+    padding: 4px 12px; font-size: 12px; border-radius: 6px; cursor: pointer;
+  }
+  .top-bar .user-info button:hover { background: rgba(255,255,255,0.3); }
 
   /* 左侧导航 */
   .sidebar {
@@ -44,6 +85,7 @@
   .nav-item .icon { font-size: 18px; width: 24px; text-align: center; }
   .nav-item.inactive { opacity: 0.4; cursor: default; }
   .nav-item.inactive:hover { background: transparent; color: #555; }
+  .nav-divider { height: 1px; background: #e8e8e8; margin: 12px 16px; }
 
   /* 右侧内容区 */
   .main-content {
@@ -55,75 +97,487 @@
     width: 100%; height: 100%; border: none;
   }
 
-  /* 欢迎页（默认不显示） */
-  .welcome-page {
-    padding: 32px; display: none;
+  /* 模态框通用样式 */
+  .modal-overlay {
+    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4); z-index: 2000;
+    justify-content: center; align-items: center;
   }
-  .welcome-page .welcome-title { font-size: 24px; font-weight: 600; color: #333; margin-bottom: 8px; }
-  .welcome-page .welcome-desc { font-size: 14px; color: #888; margin-bottom: 32px; }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: #fff; border-radius: 12px; padding: 28px;
+    width: 520px; max-width: 90vw; max-height: 80vh; overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  }
+  .modal h2 { font-size: 18px; margin-bottom: 20px; color: #333; }
+  .modal .form-group { margin-bottom: 16px; }
+  .modal .form-group label { display: block; font-size: 13px; color: #555; margin-bottom: 6px; }
+  .modal .form-group label .required { color: #ea4335; }
+  .modal .form-group input, .modal .form-group select {
+    width: 100%; padding: 8px 12px; font-size: 13px;
+    border: 1px solid #d0d0d0; border-radius: 6px; outline: none;
+  }
+  .modal .form-group input:focus, .modal .form-group select:focus { border-color: #1a73e8; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+  .modal-actions button {
+    border: none; border-radius: 6px; padding: 7px 16px;
+    font-size: 13px; cursor: pointer; font-weight: 500; transition: all 0.2s;
+  }
+  .btn-primary { background: #1a73e8; color: #fff; }
+  .btn-primary:hover { background: #1557b0; }
+  .btn-outline { background: #fff; color: #333; border: 1px solid #d0d0d0; }
+  .btn-outline:hover { background: #f5f5f5; }
+  .btn-danger { background: #ea4335; color: #fff; }
+  .btn-danger:hover { background: #c5221f; }
+
+  /* 用户表格 */
+  .user-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  .user-table th { padding: 8px 12px; font-size: 12px; background: #fafafa; border-bottom: 2px solid #e0e0e0; text-align: left; }
+  .user-table td { padding: 8px 12px; font-size: 13px; border-bottom: 1px solid #f0f0f0; }
+  .user-table .role-super { color: #c5221f; font-weight: 600; }
+  .user-table .role-admin { color: #1a73e8; font-weight: 600; }
+  .user-table .role-user { color: #2e7d32; }
+  .action-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .action-btns button {
+    border: none; border-radius: 4px; padding: 3px 8px;
+    font-size: 11px; cursor: pointer; font-weight: 500;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    background: #333; color: #fff; padding: 10px 24px; border-radius: 8px;
+    font-size: 13px; z-index: 9999; opacity: 0; transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  /* 加载遮罩 */
+  .loading-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255,255,255,0.9); z-index: 3000;
+    display: flex; justify-content: center; align-items: center;
+    flex-direction: column; gap: 16px;
+  }
+  .loading-overlay.hidden { display: none; }
+  .spinner {
+    width: 40px; height: 40px; border: 4px solid #e0e0e0;
+    border-top-color: #1a73e8; border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 14px; color: #666; }
 </style>
 </head>
 <body>
 
-<!-- 顶部栏 -->
-<div class="top-bar">
-  <div>
-    <h1>生产管理系统</h1>
-    <div class="subtitle">模块化统一管理平台</div>
+<!-- 加载遮罩 -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text">正在加载数据...</div>
+</div>
+
+<!-- 登录遮罩 -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <h2>&#127967; 生产管理系统</h2>
+    <div class="subtitle">请输入用户名和密码登录</div>
+    <div class="form-group">
+      <label>用户名</label>
+      <input type="text" id="loginUsername" placeholder="请输入用户名" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label>密码</label>
+      <input type="password" id="loginPassword" placeholder="请输入密码" autocomplete="current-password">
+    </div>
+    <button class="login-btn" onclick="doLogin()">登 录</button>
+    <div class="error-msg" id="loginError"></div>
+    <div class="hint">提示：首次使用请联系管理员创建账号</div>
   </div>
 </div>
 
-<!-- 左侧导航 -->
-<div class="sidebar">
-  <div class="sidebar-title">功能模块</div>
-  <a class="nav-item active" data-module="inventory" onclick="switchModule('inventory')">
-    <span class="icon">📦</span>
-    <span>辅料库存管理</span>
-  </a>
-  <a class="nav-item inactive">
-    <span class="icon">🔧</span>
-    <span>配件库存管理</span>
-  </a>
+<!-- 主界面（初始隐藏） -->
+<div id="appShell" style="display:none">
+
+  <!-- 顶部栏 -->
+  <div class="top-bar">
+    <div>
+      <h1>生产管理系统</h1>
+      <div class="subtitle">模块化统一管理平台</div>
+    </div>
+    <div class="user-info" id="userInfo"></div>
+  </div>
+
+  <!-- 左侧导航 -->
+  <div class="sidebar">
+    <div class="sidebar-title">功能模块</div>
+    <a class="nav-item active" data-module="inventory" onclick="switchModule('inventory')">
+      <span class="icon">&#128230;</span>
+      <span>辅料库存管理</span>
+    </a>
+    <a class="nav-item inactive">
+      <span class="icon">&#128295;</span>
+      <span>配件库存管理</span>
+    </a>
+    <div class="nav-divider"></div>
+    <a class="nav-item" id="navUserManage" onclick="openUserManage()" style="display:none">
+      <span class="icon">&#128100;</span>
+      <span>用户管理</span>
+    </a>
+  </div>
+
+  <!-- 右侧内容区 -->
+  <div class="main-content">
+    <iframe id="moduleFrame" src="about:blank"></iframe>
+  </div>
 </div>
 
-<!-- 右侧内容区 -->
-<div class="main-content">
-  <iframe id="moduleFrame" src="inventory.html"></iframe>
+<!-- 用户管理模态框 -->
+<div class="modal-overlay" id="userManageModal">
+  <div class="modal">
+    <h2>&#128100; 用户管理</h2>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+      <button class="btn-primary" onclick="showAddUser()">+ 新增用户</button>
+    </div>
+    <div id="userListTable"></div>
+    <div class="modal-actions">
+      <button class="btn-outline" onclick="closeModal('userManageModal')">关闭</button>
+    </div>
+  </div>
 </div>
+
+<!-- 新增用户模态框 -->
+<div class="modal-overlay" id="addUserModal">
+  <div class="modal">
+    <h2>新增用户</h2>
+    <div class="form-group">
+      <label>用户名 <span class="required">*</span></label>
+      <input type="text" id="newUsername" placeholder="输入用户名">
+    </div>
+    <div class="form-group">
+      <label>密码 <span class="required">*</span></label>
+      <input type="password" id="newPassword" placeholder="输入密码">
+    </div>
+    <div class="form-group">
+      <label>角色 <span class="required">*</span></label>
+      <select id="newRole">
+        <option value="user">普通用户（仅领出）</option>
+        <option value="admin">管理用户（领入+领出）</option>
+        <option value="super">超级用户（全部权限）</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-outline" onclick="closeModal('addUserModal')">取消</button>
+      <button class="btn-primary" onclick="submitAddUser()">确认添加</button>
+    </div>
+  </div>
+</div>
+
+<!-- 重置密码模态框 -->
+<div class="modal-overlay" id="resetPwdModal">
+  <div class="modal">
+    <h2>重置密码</h2>
+    <input type="hidden" id="resetUserId">
+    <div class="form-group">
+      <label>新密码 <span class="required">*</span></label>
+      <input type="password" id="resetNewPwd" placeholder="输入新密码">
+    </div>
+    <div class="form-group">
+      <label>确认新密码 <span class="required">*</span></label>
+      <input type="password" id="resetConfirmPwd" placeholder="再次输入新密码">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-outline" onclick="closeModal('resetPwdModal')">取消</button>
+      <button class="btn-primary" onclick="submitResetPwd()">确认重置</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
 
 <script>
-  // 模块地址映射
-  const modules = {
-    inventory: 'inventory.html'
-  };
+// ============================================================
+//  生产管理系统 - 统一登录 & 用户管理
+//  用户数据通过 GitHub Gist 云端存储
+// ============================================================
 
-  // 自动透传 token
-  const params = new URLSearchParams(window.location.search);
-  const token = params.get('token') || '';
+const GITHUB_TOKEN = new URLSearchParams(window.location.search).get('token') || '';
+const GIST_API = 'https://api.github.com/gists';
+const GIST_FILENAME = 'inventory_data.json';
+const PRESET_GIST_ID = '8cd0ec9b1c7ba76a3186a4db9f6d8e80';
 
-  function getModuleUrl(name) {
-    let url = modules[name];
-    if (token) {
-      url += (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
-    }
-    return url;
+const ROLE_LEVEL = { 'user': 1, 'admin': 2, 'super': 3 };
+const ROLE_LABEL = { 'super': '超级用户', 'admin': '管理用户', 'user': '普通用户' };
+const ROLE_CLS = { 'super': 'role-super', 'admin': 'role-admin', 'user': 'role-user' };
+
+let users = [];
+let currentUser = null;
+let gistId = PRESET_GIST_ID;
+let gistData = null; // 缓存 Gist 完整数据
+
+// 模块地址映射
+const modules = {
+  inventory: 'inventory.html'
+};
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+document.addEventListener('click', function(e) {
+  if (e.target.classList.contains('modal-overlay')) e.target.classList.remove('active');
+});
+
+// ========== Gist 数据操作 ==========
+async function loadGistData() {
+  if (!GITHUB_TOKEN) {
+    showToast('未配置 Token，请使用 ?token=xxx 参数访问');
+    return false;
   }
-
-  function switchModule(name) {
-    if (!modules[name]) return;
-    // 更新导航高亮
-    document.querySelectorAll('.nav-item').forEach(function(item) {
-      item.classList.remove('active');
+  try {
+    const res = await fetch(GIST_API + '/' + gistId, {
+      headers: { 'Authorization': 'token ' + GITHUB_TOKEN, 'Accept': 'application/vnd.github.v3+json' }
     });
-    document.querySelector('[data-module="' + name + '"]').classList.add('active');
-    // 切换 iframe
-    document.getElementById('moduleFrame').src = getModuleUrl(name);
+    if (res.ok) {
+      const gist = await res.json();
+      const file = gist.files && gist.files[GIST_FILENAME];
+      if (file && file.content) {
+        gistData = JSON.parse(file.content);
+        users = gistData.users || [];
+        if (users.length === 0) {
+          users = [{ username: 'admin', password: '8888', role: 'super' }];
+        }
+        return true;
+      }
+    }
+    showToast('数据加载失败');
+    return false;
+  } catch (e) {
+    console.error('Load error:', e);
+    showToast('网络连接失败');
+    return false;
+  }
+}
+
+async function saveGistData() {
+  if (!gistId || !gistData) return;
+  gistData.users = users;
+  try {
+    const res = await fetch(GIST_API + '/' + gistId, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': 'token ' + GITHUB_TOKEN,
+        'Accept': 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        files: { [GIST_FILENAME]: { content: JSON.stringify(gistData) } }
+      })
+    });
+    if (res.ok) return true;
+    showToast('保存失败');
+    return false;
+  } catch (e) {
+    showToast('保存失败');
+    return false;
+  }
+}
+
+// ========== 登录系统 ==========
+function doLogin() {
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errorEl = document.getElementById('loginError');
+
+  if (!username || !password) {
+    errorEl.textContent = '请输入用户名和密码';
+    errorEl.style.display = 'block';
+    return;
   }
 
-  // 初始加载时透传 token 到 iframe
-  if (token) {
-    document.getElementById('moduleFrame').src = getModuleUrl('inventory');
+  const user = users.find(u => u.username === username && u.password === password);
+  if (!user) {
+    errorEl.textContent = '用户名或密码错误';
+    errorEl.style.display = 'block';
+    return;
   }
+
+  currentUser = { username: user.username, role: user.role };
+  errorEl.style.display = 'none';
+  document.getElementById('loginOverlay').classList.add('hidden');
+  showApp();
+  showToast('欢迎回来，' + username + '（' + ROLE_LABEL[user.role] + '）');
+}
+
+function doLogout() {
+  currentUser = null;
+  document.getElementById('appShell').style.display = 'none';
+  document.getElementById('loginOverlay').classList.remove('hidden');
+  document.getElementById('loginUsername').value = '';
+  document.getElementById('loginPassword').value = '';
+  document.getElementById('moduleFrame').src = 'about:blank';
+}
+
+function showApp() {
+  document.getElementById('appShell').style.display = '';
+  renderUserInfo();
+  // 超级用户显示用户管理入口
+  document.getElementById('navUserManage').style.display = hasRole('super') ? '' : 'none';
+  // 加载默认模块
+  switchModule('inventory');
+}
+
+function renderUserInfo() {
+  const el = document.getElementById('userInfo');
+  if (!currentUser) { el.innerHTML = ''; return; }
+  el.innerHTML = '<span class="role-tag ' + ROLE_CLS[currentUser.role] + '">' + ROLE_LABEL[currentUser.role] + '</span>' +
+    '<span style="color:rgba(255,255,255,0.9)">' + currentUser.username + '</span>' +
+    '<button onclick="doLogout()">退出</button>';
+}
+
+function hasRole(minRole) {
+  if (!currentUser) return false;
+  return ROLE_LEVEL[currentUser.role] >= ROLE_LEVEL[minRole];
+}
+
+// Enter 键登录
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !document.getElementById('loginOverlay').classList.contains('hidden')) {
+    doLogin();
+  }
+});
+
+// ========== 模块切换 ==========
+function switchModule(name) {
+  if (!modules[name]) return;
+  // 更新导航高亮
+  document.querySelectorAll('.nav-item[data-module]').forEach(function(item) {
+    item.classList.remove('active');
+  });
+  const navEl = document.querySelector('[data-module="' + name + '"]');
+  if (navEl) navEl.classList.add('active');
+  // 构建 iframe URL
+  let url = modules[name];
+  // 透传 token
+  if (GITHUB_TOKEN) {
+    url += '?token=' + encodeURIComponent(GITHUB_TOKEN);
+  }
+  const iframe = document.getElementById('moduleFrame');
+  iframe.src = url;
+  // iframe 加载后发送用户信息
+  iframe.onload = function() {
+    try {
+      iframe.contentWindow.postMessage({
+        type: 'PLATFORM_LOGIN',
+        user: currentUser,
+        token: GITHUB_TOKEN,
+        gistId: gistId
+      }, '*');
+    } catch(e) {
+      console.warn('Cannot send message to iframe:', e);
+    }
+  };
+}
+
+// ========== 用户管理 ==========
+function openUserManage() {
+  if (!hasRole('super')) { showToast('仅超级用户可以管理用户'); return; }
+  renderUserList();
+  document.getElementById('userManageModal').classList.add('active');
+}
+
+function renderUserList() {
+  const container = document.getElementById('userListTable');
+  if (users.length === 0) { container.innerHTML = '<div style="color:#999;text-align:center;padding:20px">暂无用户</div>'; return; }
+  let html = '<table class="user-table"><thead><tr><th>用户名</th><th>角色</th><th>操作</th></tr></thead><tbody>';
+  users.forEach((u, idx) => {
+    let actions = '<button class="btn-outline" onclick="showResetPwd(' + idx + ')">重置密码</button>';
+    if (u.username !== currentUser.username) {
+      const superCount = users.filter(x => x.role === 'super').length;
+      if (!(u.role === 'super' && superCount <= 1)) {
+        actions += '<button class="btn-danger" onclick="deleteUser(' + idx + ')">删除</button>';
+      }
+    }
+    html += '<tr><td>' + u.username + '</td><td class="' + ROLE_CLS[u.role] + '">' + ROLE_LABEL[u.role] + '</td><td><div class="action-btns">' + actions + '</div></td></tr>';
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function showAddUser() {
+  document.getElementById('newUsername').value = '';
+  document.getElementById('newPassword').value = '';
+  document.getElementById('newRole').value = 'user';
+  document.getElementById('addUserModal').classList.add('active');
+}
+
+async function submitAddUser() {
+  const username = document.getElementById('newUsername').value.trim();
+  const password = document.getElementById('newPassword').value;
+  const role = document.getElementById('newRole').value;
+  if (!username || !password) { showToast('请填写完整信息'); return; }
+  if (users.find(u => u.username === username)) { showToast('用户名已存在'); return; }
+  users.push({ username, password, role });
+  await saveGistData();
+  closeModal('addUserModal');
+  renderUserList();
+  showToast('用户 ' + username + ' 添加成功（' + ROLE_LABEL[role] + '）');
+  // 通知子模块刷新用户数据
+  notifyIframe('USERS_UPDATED', { users: users });
+}
+
+function deleteUser(idx) {
+  const u = users[idx];
+  if (u.username === currentUser.username) { showToast('不能删除当前登录用户'); return; }
+  if (!confirm('确认删除用户 ' + u.username + '？')) return;
+  users.splice(idx, 1);
+  saveGistData().then(() => {
+    renderUserList();
+    showToast('已删除用户：' + u.username);
+    notifyIframe('USERS_UPDATED', { users: users });
+  });
+}
+
+function showResetPwd(idx) {
+  document.getElementById('resetUserId').value = idx;
+  document.getElementById('resetNewPwd').value = '';
+  document.getElementById('resetConfirmPwd').value = '';
+  document.getElementById('resetPwdModal').classList.add('active');
+}
+
+async function submitResetPwd() {
+  const idx = parseInt(document.getElementById('resetUserId').value);
+  const pwd1 = document.getElementById('resetNewPwd').value;
+  const pwd2 = document.getElementById('resetConfirmPwd').value;
+  if (!pwd1 || !pwd2) { showToast('请输入新密码'); return; }
+  if (pwd1 !== pwd2) { showToast('两次密码不一致'); return; }
+  users[idx].password = pwd1;
+  await saveGistData();
+  closeModal('resetPwdModal');
+  renderUserList();
+  showToast('密码已重置');
+}
+
+function notifyIframe(type, data) {
+  const iframe = document.getElementById('moduleFrame');
+  try {
+    iframe.contentWindow.postMessage({ type, ...data }, '*');
+  } catch(e) {}
+}
+
+// ========== 初始化 ==========
+(async function init() {
+  const ok = await loadGistData();
+  document.getElementById('loadingOverlay').classList.add('hidden');
+  if (!ok) return;
+
+  // 检查是否已登录（sessionStorage，iframe 内无法共享所以用 sessionStorage 也不行，直接每次登录）
+  document.getElementById('loginOverlay').classList.remove('hidden');
+})();
 </script>
 
 </body>
