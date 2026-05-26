@@ -70,7 +70,9 @@
     border-radius: 8px; overflow-x: auto; max-height: calc(100vh - 180px); overflow-y: auto;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   }
-  table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 900px; }
+  table { width: 100%; border-collapse: separate; border-spacing: 0; }
+  .table-container table { min-width: 900px; }
+  .batch-table { min-width: 0 !important; }
   thead { background: #fafafa; }
   th {
     padding: 12px 14px; text-align: left;
@@ -110,7 +112,7 @@
   .modal-overlay.active { display: flex; }
   .modal {
     background: #fff; border-radius: 12px; padding: 24px;
-    width: 480px; max-width: 95vw; max-height: 95vh; overflow-y: auto;
+    width: 480px; max-width: 95vw; max-height: 95vh; overflow: hidden auto;
     box-shadow: 0 8px 32px rgba(0,0,0,0.2);
   }
   .modal h2 { font-size: 18px; margin-bottom: 16px; color: #1a73e8; }
@@ -123,13 +125,13 @@
   .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 
   .flow-table { font-size: 12px; }
-  .batch-table { width: 100%; font-size: 13px; border-collapse: collapse; table-layout: fixed; }
-  .batch-table th { background: #f5f5f5; padding: 8px 10px; text-align: left; border-bottom: 2px solid #ddd; font-weight: 600; position: sticky; top: 0; }
-  .batch-table td { padding: 6px 10px; border-bottom: 1px solid #eee; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .batch-table td:first-child { white-space: normal; }
+  .batch-table { width: 100%; max-width: 100%; font-size: 12px; border-collapse: collapse; table-layout: fixed; box-sizing: border-box; overflow-x: hidden; }
+  .batch-table th { background: #f5f5f5; padding: 6px 8px; text-align: left; border-bottom: 2px solid #ddd; font-weight: 600; position: sticky; top: 0; white-space: normal; }
+  .batch-table td { padding: 4px 8px; border-bottom: 1px solid #eee; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .batch-table td:first-child { white-space: normal; word-break: break-all; }
   .batch-table tr:hover { background: #f8f9ff; }
-  .batch-table .qty-input { width: 90px !important; padding: 6px !important; font-size: 14px !important; }
-  #batchInList, #batchOutList { max-height: 60vh; overflow-y: auto; }
+  .batch-table .qty-input { width: 60px !important; padding: 2px 4px !important; font-size: 13px !important; box-sizing: border-box; }
+  #batchInList, #batchOutList { max-height: 60vh; overflow: hidden auto; width: 100%; box-sizing: border-box; }
   .flow-in { color: #34a853; font-weight: 600; }
   .flow-out { color: #ea4335; font-weight: 600; }
 
@@ -488,7 +490,7 @@
 
 <!-- 批量领入模态框 -->
 <div class="modal-overlay" id="batchInModal">
-  <div class="modal" style="width:680px">
+  <div class="modal" style="width:640px">
     <h2 style="color:#34a853">批量领入登记</h2>
     <div class="form-group">
       <label>操作日期</label>
@@ -508,7 +510,7 @@
 
 <!-- 批量领出模态框 -->
 <div class="modal-overlay" id="batchOutModal">
-  <div class="modal" style="width:680px">
+  <div class="modal" style="width:640px">
     <h2 style="color:#ea4335">领出登记（待确认）</h2>
     <p style="font-size:12px;color:#999;margin-bottom:12px">提交后需由管理员确认发货，库存不会立即扣减。</p>
     <div class="form-row">
@@ -1202,7 +1204,7 @@ function openBatchInModal() {
   if (items.length === 0) { showToast('请先添加辅料'); return; }
   document.getElementById('inDate').value = today();
   document.getElementById('inRemark').value = '';
-  let html = '<table class="flow-table batch-table"><thead><tr><th>辅料名称</th><th style="width:80px">单位</th><th style="width:100px">当前库存</th><th style="width:100px">领入数量</th></tr></thead><tbody>';
+  let html = '<table class="flow-table batch-table"><thead><tr><th style="width:55%">辅料名称</th><th style="width:55px">单位</th><th style="width:70px">当前库存</th><th style="width:80px">领入数量</th></tr></thead><tbody>';
   items.forEach(item => {
     const lowStock = (item.minStock > 0 && item.stock < item.minStock) ? ' style="color:#ea4335;font-weight:600"' : '';
     html += '<tr><td>' + item.name + '</td><td>' + item.unit + '</td><td' + lowStock + '>' + item.stock + '</td><td><input type="number" class="qty-input" style="width:90px" id="in_' + item.id + '" min="0" value="0"></td></tr>';
@@ -1236,7 +1238,7 @@ function openBatchOutModal() {
   document.getElementById('outPerson').value = '';
   document.getElementById('outRemark').value = '';
   refreshPersonDatalist();
-  let html = '<table class="flow-table batch-table"><thead><tr><th>辅料名称</th><th style="width:80px">单位</th><th style="width:100px">当前库存</th><th style="width:100px">领出数量</th></tr></thead><tbody>';
+  let html = '<table class="flow-table batch-table"><thead><tr><th style="width:55%">辅料名称</th><th style="width:55px">单位</th><th style="width:70px">当前库存</th><th style="width:80px">领出数量</th></tr></thead><tbody>';
   items.forEach(item => {
     const lowStock = (item.stock === 0) ? ' style="color:#ea4335;font-weight:600"' : '';
     html += '<tr><td>' + item.name + '</td><td>' + item.unit + '</td><td' + lowStock + '>' + item.stock + '</td><td><input type="number" class="qty-input" style="width:90px" id="out_' + item.id + '" min="0" max="' + item.stock + '" value="0"></td></tr>';
@@ -1383,16 +1385,6 @@ function confirmShip(orderId) {
     warningHtml = '<div style="margin-top:8px;padding:8px 12px;background:#fce8e6;border-radius:6px;color:#c5221f;font-size:12px;">⚠️ 库存异常：<br>' + stockIssues.join('<br>') + '<br>请先处理库存后再确认。</div>';
   }
 
-  let lowStockWarnings = [];
-  order.items.forEach(it => {
-    const item = items.find(i => i.id === it.itemId);
-    if (item && item.stock - it.qty < item.minStock && item.stock - it.qty > 0) lowStockWarnings.push(it.itemName);
-    else if (item && item.stock - it.qty === 0) lowStockWarnings.push(it.itemName + '（将为零！）');
-  });
-  if (lowStockWarnings.length > 0 && stockOk) {
-    warningHtml = '<div style="margin-top:8px;padding:8px 12px;background:#fff3e0;border-radius:6px;color:#e65100;font-size:12px;">⚠️ 注意：以下辅料确认后库存将低于预警线<br>' + lowStockWarnings.join('、') + '</div>';
-  }
-
   let detailHtml = '<div class="confirm-detail-row"><span class="label">领用线体</span><span class="value"><span class="line-tag ' + getLineClass(order.line) + '">' + order.line + '</span></span></div>';
   detailHtml += '<div class="confirm-detail-row"><span class="label">领用人</span><span class="value">' + order.person + '</span></div>';
   detailHtml += '<div class="confirm-detail-row"><span class="label">日期</span><span class="value">' + order.date + '</span></div>';
@@ -1402,13 +1394,13 @@ function confirmShip(orderId) {
 
   if (!stockOk) { showConfirm('out', '无法确认发货', detailHtml, '知道了', 'btn-outline', warningHtml, function() {}); return; }
 
-  let extraHtml = '<div style="text-align:left;margin-bottom:0"><label style="display:block;font-size:13px;font-weight:500;margin-bottom:4px;color:#555">请输入确认人姓名 <span style="color:#ea4335">*</span></label><input type="text" id="confirmShipConfirmer" placeholder="输入确认人姓名" list="confirmerDatalist" style="width:100%;border:1px solid #d0d0d0;border-radius:6px;padding:7px 12px"><datalist id="confirmerDatalist"></datalist></div>' + warningHtml;
+  let defaultConfirmer = currentUser ? currentUser.username : '';
+  let extraHtml = '<div style="text-align:left;margin-bottom:0"><label style="display:block;font-size:13px;font-weight:500;margin-bottom:4px;color:#555">请输入确认人姓名</label><input type="text" id="confirmShipConfirmer" value="' + defaultConfirmer + '" placeholder="输入确认人姓名（可选）" list="confirmerDatalist" style="width:100%;border:1px solid #d0d0d0;border-radius:6px;padding:7px 12px"><datalist id="confirmerDatalist"></datalist></div>' + warningHtml;
   refreshConfirmerDatalist();
 
   showConfirm('confirm', '确认发货', detailHtml, '✅ 确认发货', 'btn-success', extraHtml, async function() {
     const confirmer = (document.getElementById('confirmShipConfirmer') || {}).value;
-    if (!confirmer || !confirmer.trim()) { showToast('请输入确认人姓名'); return; }
-    const confirmerName = confirmer.trim();
+    const confirmerName = confirmer ? confirmer.trim() : '';
 
     order.items.forEach(it => {
       const item = items.find(i => i.id === it.itemId);
@@ -1417,10 +1409,10 @@ function confirmShip(orderId) {
         history.push({ date: order.date, itemId: it.itemId, itemName: it.itemName, type: 'out', qty: it.qty, stockAfter: item.stock, person: order.person, confirmer: confirmerName, line: order.line, remark: order.remark || '领出', status: 'confirmed' });
       }
     });
-    addConfirmer(confirmerName);
+    if (confirmerName) addConfirmer(confirmerName);
     pendingOuts = pendingOuts.filter(o => o.id !== orderId);
     await save(); renderTable(); updatePendingBadge(); renderPendingList();
-    showToast('已确认发货 → ' + order.person + '（' + order.line + '），确认人：' + confirmerName);
+    showToast('已确认发货 → ' + order.person + '（' + order.line + '）' + (confirmerName ? '，确认人：' + confirmerName : ''));
   });
 }
 
