@@ -334,29 +334,33 @@
 
 <!-- 入库模态框 -->
 <div class="modal-overlay" id="inboundModal">
-  <div class="modal" style="max-width:600px">
+  <div class="modal" style="max-width:900px">
     <div class="modal-header">
       <h3>订单入库录入</h3>
       <span class="close" onclick="closeInboundModal()">&times;</span>
     </div>
     <div class="modal-body">
-      <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center">
-        <button class="btn-success" onclick="addInboundRow()">+ 添加行</button>
-        <span style="font-size:12px;color:#999">选择订单号，录入完工数量</span>
+      <div style="margin-bottom:12px">
+        <input type="text" id="inboundSearch" placeholder="输入订单号/料号查询..." style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px" oninput="renderInboundQuery()">
       </div>
+      <div style="margin-bottom:8px;font-size:12px;color:#999">查询结果：点击选择订单，填入调入数量和调入单号</div>
       <div class="table-scroll">
         <table>
           <thead>
             <tr>
-              <th style="width:50px">序号</th>
+              <th style="width:40px">选</th>
               <th>订单单号</th>
-              <th style="width:120px">完工数量</th>
-              <th style="width:50px">删</th>
+              <th>料号</th>
+              <th>品名</th>
+              <th style="width:80px">订单数量</th>
+              <th style="width:100px">调入数量</th>
+              <th style="width:120px">调入单号</th>
             </tr>
           </thead>
-          <tbody id="inboundModalBody"></tbody>
+          <tbody id="inboundQueryBody"></tbody>
         </table>
       </div>
+      <div style="margin-top:10px;font-size:12px;color:#666">已选 <span id="inboundSelectedCount">0</span> 条</div>
     </div>
     <div class="modal-footer">
       <button class="btn-outline" onclick="closeInboundModal()">取消</button>
@@ -937,53 +941,61 @@ function formatRemark(remark) {
 // ========== 入库录入 ==========
 function openInboundModal() {
   document.getElementById('inboundModal').style.display = 'flex';
-  var tbody = document.getElementById('inboundModalBody');
-  tbody.innerHTML = '';
-  addInboundRow();
+  document.getElementById('inboundSearch').value = '';
+  renderInboundQuery();
 }
 function closeInboundModal() {
   document.getElementById('inboundModal').style.display = 'none';
 }
-function getOrderNoOptions(selected) {
-  var opts = '<option value="">请选择订单</option>';
-  brandOrders.forEach(function(o) {
-    var s = o.orderNo === selected ? ' selected' : '';
-    opts += '<option value="' + escHtml(o.orderNo) + '"' + s + '>' + escHtml(o.orderNo) + ' - ' + escHtml(o.productName || '') + '</option>';
+function renderInboundQuery() {
+  var keyword = document.getElementById('inboundSearch').value.trim().toLowerCase();
+  var tbody = document.getElementById('inboundQueryBody');
+  var html = '';
+  var selected = 0;
+  var filtered = keyword ? brandOrders.filter(function(o) {
+    return (o.orderNo && o.orderNo.toLowerCase().indexOf(keyword) !== -1) ||
+           (o.materialNo && o.materialNo.toLowerCase().indexOf(keyword) !== -1) ||
+           (o.productName && o.productName.toLowerCase().indexOf(keyword) !== -1);
+  }) : brandOrders;
+  filtered.forEach(function(o) {
+    var checked = o._inboundSelected ? 'checked' : '';
+    if (o._inboundSelected) selected++;
+    html += '<tr data-order-no="' + escHtml(o.orderNo) + '">' +
+      '<td style="text-align:center"><input type="checkbox" class="i-check" ' + checked + ' onchange="toggleInboundSelect(\'' + escHtml(o.orderNo) + '\',this.checked)"></td>' +
+      '<td>' + escHtml(o.orderNo || '-') + '</td>' +
+      '<td>' + escHtml(o.materialNo || '-') + '</td>' +
+      '<td>' + escHtml(o.productName || '-') + '</td>' +
+      '<td style="text-align:right;font-weight:600">' + (o.qty || 0) + '</td>' +
+      '<td><input type="number" class="i-qty" placeholder="0" value="' + (o._inboundQty || '') + '" style="width:100%;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right" onchange="updateInboundQty(\'' + escHtml(o.orderNo) + '\',this.value)"></td>' +
+      '<td><input type="text" class="i-transferNo" placeholder="调入单号" value="' + escHtml(o._inboundTransferNo || '') + '" style="width:100%;padding:4px;border:1px solid #ddd;border-radius:4px" onchange="updateInboundTransferNo(\'' + escHtml(o.orderNo) + '\',this.value)"></td>' +
+    '</tr>';
   });
-  return opts;
+  tbody.innerHTML = html || '<tr><td colspan="7" style="text-align:center;color:#999;padding:20px">无匹配订单</td></tr>';
+  document.getElementById('inboundSelectedCount').textContent = selected;
 }
-function addInboundRow(d) {
-  var tbody = document.getElementById('inboundModalBody');
-  var row = document.createElement('tr');
-  var idx = tbody.children.length + 1;
-  row.innerHTML =
-    '<td style="text-align:center;color:#999">' + idx + '</td>' +
-    '<td><select class="i-orderNo" style="width:100%;padding:4px;border:1px solid #ddd;border-radius:4px">' + getOrderNoOptions(d && d.orderNo) + '</select></td>' +
-    '<td><input type="number" class="i-completedQty" placeholder="0" value="' + (d && d.completedQty ? d.completedQty : '') + '" style="width:100%;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right"></td>' +
-    '<td style="text-align:center"><button onclick="this.closest(\'tr\').remove();reindexInboundRows()" style="background:none;border:none;color:#ea4335;cursor:pointer;font-size:16px">&times;</button></td>';
-  tbody.appendChild(row);
+function toggleInboundSelect(orderNo, checked) {
+  var order = brandOrders.find(function(o) { return o.orderNo === orderNo; });
+  if (order) { order._inboundSelected = checked; renderInboundQuery(); }
 }
-function reindexInboundRows() {
-  var rows = document.getElementById('inboundModalBody').children;
-  for (var i = 0; i < rows.length; i++) {
-    rows[i].children[0].textContent = i + 1;
-  }
+function updateInboundQty(orderNo, val) {
+  var order = brandOrders.find(function(o) { return o.orderNo === orderNo; });
+  if (order) { order._inboundQty = val; }
+}
+function updateInboundTransferNo(orderNo, val) {
+  var order = brandOrders.find(function(o) { return o.orderNo === orderNo; });
+  if (order) { order._inboundTransferNo = val; }
 }
 function submitInbound() {
-  var rows = document.getElementById('inboundModalBody').children;
-  if (rows.length === 0) { showToast('请至少添加一行'); return; }
   var updated = 0;
-  for (var i = 0; i < rows.length; i++) {
-    var orderNo = rows[i].querySelector('.i-orderNo').value;
-    var qty = parseInt(rows[i].querySelector('.i-completedQty').value) || 0;
-    if (!orderNo) continue;
-    var order = brandOrders.find(function(o) { return o.orderNo === orderNo; });
-    if (order) {
-      order.completedQty = qty;
-      order.mesStatus = qty >= order.qty ? '已入库' : '未入库';
+  brandOrders.forEach(function(o) {
+    if (o._inboundSelected && o._inboundQty) {
+      o.completedQty = parseInt(o._inboundQty) || 0;
+      o.mesStatus = o.completedQty >= o.qty ? '已入库' : '未入库';
+      o._inboundSelected = false;
+      o._inboundQty = '';
       updated++;
     }
-  }
+  });
   if (updated > 0) {
     saveData(function() {
       showToast('已更新 ' + updated + ' 条订单入库信息');
@@ -992,7 +1004,7 @@ function submitInbound() {
       updateStats();
     });
   } else {
-    showToast('没有可更新的订单');
+    showToast('请至少选择一条订单并填入调入数量');
   }
 }
 
