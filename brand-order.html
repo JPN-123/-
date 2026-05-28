@@ -83,6 +83,10 @@
   .badge-ok { display: inline-block; background: #34a853; color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
   .badge-low { display: inline-block; background: #f9ab00; color: #333; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
   .badge-pending { display: inline-block; background: #7c4dff; color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-wip { display: inline-block; background: #f9ab00; color: #333; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-cancel { display: inline-block; background: #999; color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .bios-warning { background: #fce8e6 !important; color: #c5221f !important; font-weight: 600; padding: 2px 6px; border-radius: 4px; border: 1px solid #f5a8a0; }
+  .bios-warning::before { content: "⚠️ "; }
 
   .action-btns { display: flex; gap: 4px; }
   .action-btns button { padding: 3px 8px; font-size: 11px; }
@@ -222,6 +226,7 @@
   </div>
   <div class="toolbar-right">
     <button class="btn-primary" onclick="openOrderModal()">+ 新增订单</button>
+    <button class="btn-success" onclick="exportToExcel()">&#128190; 导出Excel</button>
     <button class="btn-outline" onclick="location.reload()">&#128260; 刷新</button>
   </div>
 </div>
@@ -589,10 +594,10 @@ function renderOrders() {
       '<td>' + (o.warehouse ? escHtml(o.warehouse) : '-') + '</td>' +
       '<td><span class="line-tag ' + lineCls + '">' + (o.line || '-') + '</span></td>' +
       '<td>' + (o.dispatchNo ? escHtml(o.dispatchNo) : '-') + '</td>' +
-      '<td>' + (o.orderStatus ? escHtml(o.orderStatus) : '-') + '</td>' +
+      '<td>' + formatStatusBadge(o.orderStatus) + '</td>' +
       '<td>' + (o.scheduleDate || '-') + '</td>' +
       '<td style="text-align:right;font-weight:600;color:#2e7d32">' + (o.completedQty || 0) + '</td>' +
-      '<td>' + (o.remark ? escHtml(o.remark) : '-') + '</td>' +
+      '<td>' + formatRemark(o.remark) + '</td>' +
       '<td>' +
         '<div class="action-btns">' +
           '<button class="btn-outline" onclick="openOrderModal(' + o.id + ')">编辑</button>' +
@@ -658,7 +663,15 @@ function addOrderRow(data) {
     '</select></td>' +
     '<td><input type="date" class="o-dispatchTime" value="' + (d.dispatchTime || '') + '"></td>' +
     '<td><input type="text" class="o-dispatchNo" placeholder="波次号" value="' + escHtml(d.dispatchNo || '') + '"></td>' +
-    '<td><input type="text" class="o-orderStatus" placeholder="订单状态" value="' + escHtml(d.orderStatus || '') + '"></td>' +
+    '<td><select class="o-orderStatus">' +
+      '<option value=""' + (!d.orderStatus ? ' selected' : '') + '>请选择</option>' +
+      '<option value="未备料"' + (d.orderStatus==='未备料' ? ' selected' : '') + '>未备料</option>' +
+      '<option value="已备料"' + (d.orderStatus==='已备料' ? ' selected' : '') + '>已备料</option>' +
+      '<option value="首件已好"' + (d.orderStatus==='首件已好' ? ' selected' : '') + '>首件已好</option>' +
+      '<option value="撤单"' + (d.orderStatus==='撤单' ? ' selected' : '') + '>撤单</option>' +
+      '<option value="排产中"' + (d.orderStatus==='排产中' ? ' selected' : '') + '>排产中</option>' +
+      '<option value="完工"' + (d.orderStatus==='完工' ? ' selected' : '') + '>完工</option>' +
+    '</select></td>' +
     '<td><input type="date" class="o-scheduleDate" value="' + (d.scheduleDate || '') + '"></td>' +
     '<td><input type="text" class="o-mesStatus" placeholder="入库状况" value="' + escHtml(d.mesStatus || '') + '"></td>' +
     '<td><input type="text" class="o-planRemark" placeholder="排产备注" value="' + escHtml(d.planRemark || '') + '"></td>' +
@@ -689,7 +702,15 @@ function fillOrderRow(tbody, o, idx) {
     '</select></td>' +
     '<td><input type="date" class="o-dispatchTime" value="' + (o.dispatchTime || '') + '"></td>' +
     '<td><input type="text" class="o-dispatchNo" placeholder="波次号" value="' + escHtml(o.dispatchNo || '') + '"></td>' +
-    '<td><input type="text" class="o-orderStatus" placeholder="订单状态" value="' + escHtml(o.orderStatus || '') + '"></td>' +
+    '<td><select class="o-orderStatus">' +
+      '<option value=""' + (!o.orderStatus ? ' selected' : '') + '>请选择</option>' +
+      '<option value="未备料"' + (o.orderStatus==='未备料' ? ' selected' : '') + '>未备料</option>' +
+      '<option value="已备料"' + (o.orderStatus==='已备料' ? ' selected' : '') + '>已备料</option>' +
+      '<option value="首件已好"' + (o.orderStatus==='首件已好' ? ' selected' : '') + '>首件已好</option>' +
+      '<option value="撤单"' + (o.orderStatus==='撤单' ? ' selected' : '') + '>撤单</option>' +
+      '<option value="排产中"' + (o.orderStatus==='排产中' ? ' selected' : '') + '>排产中</option>' +
+      '<option value="完工"' + (o.orderStatus==='完工' ? ' selected' : '') + '>完工</option>' +
+    '</select></td>' +
     '<td><input type="date" class="o-scheduleDate" value="' + (o.scheduleDate || '') + '"></td>' +
     '<td><input type="text" class="o-mesStatus" placeholder="入库状况" value="' + escHtml(o.mesStatus || '') + '"></td>' +
     '<td><input type="text" class="o-planRemark" placeholder="排产备注" value="' + escHtml(o.planRemark || '') + '"></td>' +
@@ -798,6 +819,83 @@ function deleteOrder(id) {
     showToast('删除成功');
     renderOrders();
   });
+}
+
+function formatStatusBadge(status) {
+  if (!status) return '-';
+  var cls = {
+    '未备料': 'badge-pending',
+    '已备料': 'badge-ok',
+    '首件已好': 'badge-ok',
+    '撤单': 'badge-cancel',
+    '排产中': 'badge-wip',
+    '完工': 'badge-ok'
+  }[status] || 'badge-low';
+  return '<span class="' + cls + '">' + escHtml(status) + '</span>';
+}
+
+function formatRemark(remark) {
+  if (!remark) return '-';
+  var r = escHtml(remark);
+  if (remark.indexOf('调BIOS设置') !== -1) {
+    return '<span class="bios-warning">' + r + '</span>';
+  }
+  return r;
+}
+
+function exportToExcel() {
+  var dateFilter = document.getElementById('filterDate').value;
+  var lineFilter = document.getElementById('filterStatus').value;
+  var mesFilter = document.getElementById('filterMesStatus').value;
+  var searchFilter = document.getElementById('filterSearch').value.trim().toLowerCase();
+  var filtered = brandOrders.slice();
+  if (dateFilter) filtered = filtered.filter(function(x) { return x.date === dateFilter; });
+  if (lineFilter) filtered = filtered.filter(function(x) { return x.line === lineFilter; });
+  if (mesFilter) filtered = filtered.filter(function(x) { return x.mesStatus === mesFilter; });
+  if (searchFilter) {
+    filtered = filtered.filter(function(x) {
+      return (x.orderNo && x.orderNo.toLowerCase().indexOf(searchFilter) !== -1) ||
+             (x.materialNo && x.materialNo.toLowerCase().indexOf(searchFilter) !== -1) ||
+             (x.productName && x.productName.toLowerCase().indexOf(searchFilter) !== -1) ||
+             (x.orderStatus && x.orderStatus.toLowerCase().indexOf(searchFilter) !== -1);
+    });
+  }
+  filtered.sort(function(a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+
+  var headers = ['日期','订单单号','料号','品名','数量','仓库','线体','波次号','订单状态','排产日期','完工数量','备注'];
+  var rows = filtered.map(function(o) {
+    return [
+      o.date || '',
+      o.orderNo || '',
+      o.materialNo || '',
+      o.productName || '',
+      o.qty || 0,
+      o.warehouse || '',
+      o.line || '',
+      o.dispatchNo || '',
+      o.orderStatus || '',
+      o.scheduleDate || '',
+      o.completedQty || 0,
+      o.remark || ''
+    ];
+  });
+  var csv = '\uFEFF' + headers.join(',') + '\n';
+  rows.forEach(function(row) {
+    csv += row.map(function(cell) {
+      var s = String(cell).replace(/"/g, '""');
+      if (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1) {
+        s = '"' + s + '"';
+      }
+      return s;
+    }).join(',') + '\n';
+  });
+  var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  var link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'BRAND订单_' + new Date().toISOString().split('T')[0] + '.csv';
+  link.click();
+  URL.revokeObjectURL(link.href);
+  showToast('已导出 ' + filtered.length + ' 条数据');
 }
 
 // ========== 消息监听 ==========
