@@ -438,6 +438,10 @@ function applyData(data) {
   if (!data.users || data.users.length === 0) {
     users = [{ username: 'admin', password: '8888', role: 'super' }];
   }
+  // 清理旧数据中的无效订单状态
+  brandOrders.forEach(function(o) {
+    if (o.orderStatus === '0' || o.orderStatus === 0) o.orderStatus = '';
+  });
 }
 
 function collectData() {
