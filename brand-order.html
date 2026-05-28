@@ -235,7 +235,7 @@
   <table>
     <thead>
       <tr>
-      <th>日期</th>
+      <th class="hide-col">日期</th>
       <th>订单单号</th>
       <th>料号</th>
       <th>品名</th>
@@ -245,9 +245,10 @@
       <th>线体</th>
       <th class="hide-col">波次号</th>
       <th>订单状态</th>
-      <th>排产日期</th>
+      <th class="hide-col">排产日期</th>
       <th>完工数量</th>
       <th>备注</th>
+      <th>排产备注</th>
         <th style="width:90px">操作</th>
       </tr>
     </thead>
@@ -595,7 +596,7 @@ function renderOrders() {
   filtered.forEach(function(o) {
     var lineCls = { 'A线': 'a', 'VIP线': 'vip', 'B线': 'b', '打包线': 'pack' }[o.line] || 'other';
     html += '<tr>' +
-      '<td>' + (o.date || '-') + '</td>' +
+      '<td class="hide-col">' + (o.date || '-') + '</td>' +
       '<td>' + (o.orderNo ? escHtml(o.orderNo) : '-') + '</td>' +
       '<td>' + (o.materialNo ? escHtml(o.materialNo) : '-') + '</td>' +
       '<td>' + (o.productName ? escHtml(o.productName) : '-') + '</td>' +
@@ -605,9 +606,10 @@ function renderOrders() {
       '<td><span class="line-tag ' + lineCls + '">' + (o.line || '-') + '</span></td>' +
       '<td class="hide-col">' + (o.dispatchNo ? escHtml(o.dispatchNo) : '-') + '</td>' +
       '<td>' + formatStatusBadge(o.orderStatus) + '</td>' +
-      '<td>' + (o.scheduleDate || '-') + '</td>' +
+      '<td class="hide-col">' + (o.scheduleDate || '-') + '</td>' +
       '<td style="text-align:right;font-weight:600;color:#2e7d32">' + (o.completedQty || 0) + '</td>' +
       '<td>' + formatRemark(o.remark) + '</td>' +
+      '<td>' + (o.planRemark ? escHtml(o.planRemark) : '-') + '</td>' +
       '<td>' +
         '<div class="action-btns">' +
           '<button class="btn-outline" onclick="openOrderModal(' + o.id + ')">编辑</button>' +
