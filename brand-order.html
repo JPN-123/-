@@ -235,18 +235,19 @@
   <table>
     <thead>
       <tr>
-        <th>日期</th>
-        <th>订单单号</th>
-        <th>料号</th>
-        <th>品名</th>
-        <th>数量</th>
-        <th>仓库</th>
-        <th>线体</th>
-        <th class="hide-col">波次号</th>
-        <th>订单状态</th>
-        <th>排产日期</th>
-        <th>完工数量</th>
-        <th>备注</th>
+      <th>日期</th>
+      <th>订单单号</th>
+      <th>料号</th>
+      <th>品名</th>
+      <th>数量</th>
+      <th>开单时间</th>
+      <th>仓库</th>
+      <th>线体</th>
+      <th class="hide-col">波次号</th>
+      <th>订单状态</th>
+      <th>排产日期</th>
+      <th>完工数量</th>
+      <th>备注</th>
         <th style="width:90px">操作</th>
       </tr>
     </thead>
@@ -599,6 +600,7 @@ function renderOrders() {
       '<td>' + (o.materialNo ? escHtml(o.materialNo) : '-') + '</td>' +
       '<td>' + (o.productName ? escHtml(o.productName) : '-') + '</td>' +
       '<td style="text-align:right;font-weight:600">' + (o.qty || 0) + '</td>' +
+      '<td>' + (o.orderTime || '-') + '</td>' +
       '<td>' + (o.warehouse ? escHtml(o.warehouse) : '-') + '</td>' +
       '<td><span class="line-tag ' + lineCls + '">' + (o.line || '-') + '</span></td>' +
       '<td class="hide-col">' + (o.dispatchNo ? escHtml(o.dispatchNo) : '-') + '</td>' +
