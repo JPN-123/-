@@ -222,7 +222,7 @@
       <option value="已入库">已入库</option>
       <option value="未入库">未入库</option>
     </select>
-    <input type="text" id="filterSearch" placeholder="搜索订单号/料号/品名" style="width:180px">
+    <input type="text" id="filterSearch" placeholder="批量查询（多关键词用逗号/空格/换行分隔）" style="width:280px">
   </div>
   <div class="toolbar-right">
     <button class="btn-primary" onclick="openOrderModal()">+ 新增订单</button>
@@ -557,7 +557,8 @@ function renderOrders() {
   var dateFilter = document.getElementById('filterDate').value;
   var lineFilter = document.getElementById('filterStatus').value;
   var mesFilter = document.getElementById('filterMesStatus').value;
-  var searchFilter = document.getElementById('filterSearch').value.trim().toLowerCase();
+  var searchRaw = document.getElementById('filterSearch').value.trim().toLowerCase();
+  var searchTerms = searchRaw ? searchRaw.split(/[,，\s\n]+/).filter(function(s){ return s.length>0; }) : [];
   var tbody = document.getElementById('orderTableBody');
   var emptyState = document.getElementById('emptyState');
   var table = document.querySelector('#tableContainer table');
@@ -566,12 +567,15 @@ function renderOrders() {
   if (dateFilter) filtered = filtered.filter(function(x) { return x.date === dateFilter; });
   if (lineFilter) filtered = filtered.filter(function(x) { return x.line === lineFilter; });
   if (mesFilter) filtered = filtered.filter(function(x) { return x.mesStatus === mesFilter; });
-  if (searchFilter) {
+  if (searchTerms.length > 0) {
     filtered = filtered.filter(function(x) {
-      return (x.orderNo && x.orderNo.toLowerCase().indexOf(searchFilter) !== -1) ||
-             (x.materialNo && x.materialNo.toLowerCase().indexOf(searchFilter) !== -1) ||
-             (x.productName && x.productName.toLowerCase().indexOf(searchFilter) !== -1) ||
-             (x.orderStatus && x.orderStatus.toLowerCase().indexOf(searchFilter) !== -1);
+      return searchTerms.some(function(term) {
+        return (x.orderNo && x.orderNo.toLowerCase().indexOf(term) !== -1) ||
+               (x.materialNo && x.materialNo.toLowerCase().indexOf(term) !== -1) ||
+               (x.productName && x.productName.toLowerCase().indexOf(term) !== -1) ||
+               (x.orderStatus && x.orderStatus.toLowerCase().indexOf(term) !== -1) ||
+               (x.dispatchNo && x.dispatchNo.toLowerCase().indexOf(term) !== -1);
+      });
     });
   }
   filtered.sort(function(a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
@@ -851,17 +855,21 @@ function exportToExcel() {
   var dateFilter = document.getElementById('filterDate').value;
   var lineFilter = document.getElementById('filterStatus').value;
   var mesFilter = document.getElementById('filterMesStatus').value;
-  var searchFilter = document.getElementById('filterSearch').value.trim().toLowerCase();
+  var searchRaw = document.getElementById('filterSearch').value.trim().toLowerCase();
+  var searchTerms = searchRaw ? searchRaw.split(/[,，\s\n]+/).filter(function(s){ return s.length>0; }) : [];
   var filtered = brandOrders.slice();
   if (dateFilter) filtered = filtered.filter(function(x) { return x.date === dateFilter; });
   if (lineFilter) filtered = filtered.filter(function(x) { return x.line === lineFilter; });
   if (mesFilter) filtered = filtered.filter(function(x) { return x.mesStatus === mesFilter; });
-  if (searchFilter) {
+  if (searchTerms.length > 0) {
     filtered = filtered.filter(function(x) {
-      return (x.orderNo && x.orderNo.toLowerCase().indexOf(searchFilter) !== -1) ||
-             (x.materialNo && x.materialNo.toLowerCase().indexOf(searchFilter) !== -1) ||
-             (x.productName && x.productName.toLowerCase().indexOf(searchFilter) !== -1) ||
-             (x.orderStatus && x.orderStatus.toLowerCase().indexOf(searchFilter) !== -1);
+      return searchTerms.some(function(term) {
+        return (x.orderNo && x.orderNo.toLowerCase().indexOf(term) !== -1) ||
+               (x.materialNo && x.materialNo.toLowerCase().indexOf(term) !== -1) ||
+               (x.productName && x.productName.toLowerCase().indexOf(term) !== -1) ||
+               (x.orderStatus && x.orderStatus.toLowerCase().indexOf(term) !== -1) ||
+               (x.dispatchNo && x.dispatchNo.toLowerCase().indexOf(term) !== -1);
+      });
     });
   }
   filtered.sort(function(a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
