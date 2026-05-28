@@ -239,6 +239,7 @@
   </div>
   <div class="toolbar-right">
     <button class="btn-primary" onclick="openOrderModal()">+ 新增订单</button>
+    <button class="btn-warning" onclick="openInboundModal()">&#128229; 入库</button>
     <button class="btn-success" onclick="exportToExcel()">&#128190; 导出Excel</button>
     <button class="btn-outline" onclick="location.reload()">&#128260; 刷新</button>
   </div>
@@ -327,6 +328,39 @@
       <input type="hidden" id="orderEditId" value="">
       <button class="btn-outline" onclick="closeOrderModal()">取消</button>
       <button class="btn-primary" onclick="submitOrder()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 入库模态框 -->
+<div class="modal-overlay" id="inboundModal">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <h3>订单入库录入</h3>
+      <span class="close" onclick="closeInboundModal()">&times;</span>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center">
+        <button class="btn-success" onclick="addInboundRow()">+ 添加行</button>
+        <span style="font-size:12px;color:#999">选择订单号，录入完工数量</span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:50px">序号</th>
+              <th>订单单号</th>
+              <th style="width:120px">完工数量</th>
+              <th style="width:50px">删</th>
+            </tr>
+          </thead>
+          <tbody id="inboundModalBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="closeInboundModal()">取消</button>
+      <button class="btn-primary" onclick="submitInbound()">保存</button>
     </div>
   </div>
 </div>
@@ -898,6 +932,68 @@ function formatRemark(remark) {
     return '<span class="bios-warning">' + r + '</span>';
   }
   return r;
+}
+
+// ========== 入库录入 ==========
+function openInboundModal() {
+  document.getElementById('inboundModal').style.display = 'flex';
+  var tbody = document.getElementById('inboundModalBody');
+  tbody.innerHTML = '';
+  addInboundRow();
+}
+function closeInboundModal() {
+  document.getElementById('inboundModal').style.display = 'none';
+}
+function getOrderNoOptions(selected) {
+  var opts = '<option value="">请选择订单</option>';
+  brandOrders.forEach(function(o) {
+    var s = o.orderNo === selected ? ' selected' : '';
+    opts += '<option value="' + escHtml(o.orderNo) + '"' + s + '>' + escHtml(o.orderNo) + ' - ' + escHtml(o.productName || '') + '</option>';
+  });
+  return opts;
+}
+function addInboundRow(d) {
+  var tbody = document.getElementById('inboundModalBody');
+  var row = document.createElement('tr');
+  var idx = tbody.children.length + 1;
+  row.innerHTML =
+    '<td style="text-align:center;color:#999">' + idx + '</td>' +
+    '<td><select class="i-orderNo" style="width:100%;padding:4px;border:1px solid #ddd;border-radius:4px">' + getOrderNoOptions(d && d.orderNo) + '</select></td>' +
+    '<td><input type="number" class="i-completedQty" placeholder="0" value="' + (d && d.completedQty ? d.completedQty : '') + '" style="width:100%;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right"></td>' +
+    '<td style="text-align:center"><button onclick="this.closest(\'tr\').remove();reindexInboundRows()" style="background:none;border:none;color:#ea4335;cursor:pointer;font-size:16px">&times;</button></td>';
+  tbody.appendChild(row);
+}
+function reindexInboundRows() {
+  var rows = document.getElementById('inboundModalBody').children;
+  for (var i = 0; i < rows.length; i++) {
+    rows[i].children[0].textContent = i + 1;
+  }
+}
+function submitInbound() {
+  var rows = document.getElementById('inboundModalBody').children;
+  if (rows.length === 0) { showToast('请至少添加一行'); return; }
+  var updated = 0;
+  for (var i = 0; i < rows.length; i++) {
+    var orderNo = rows[i].querySelector('.i-orderNo').value;
+    var qty = parseInt(rows[i].querySelector('.i-completedQty').value) || 0;
+    if (!orderNo) continue;
+    var order = brandOrders.find(function(o) { return o.orderNo === orderNo; });
+    if (order) {
+      order.completedQty = qty;
+      order.mesStatus = qty >= order.qty ? '已入库' : '未入库';
+      updated++;
+    }
+  }
+  if (updated > 0) {
+    saveData(function() {
+      showToast('已更新 ' + updated + ' 条订单入库信息');
+      closeInboundModal();
+      renderOrders();
+      updateStats();
+    });
+  } else {
+    showToast('没有可更新的订单');
+  }
 }
 
 function exportToExcel() {
