@@ -114,6 +114,37 @@
     width: 480px; max-width: 95vw; max-height: 95vh; overflow: hidden auto;
     box-shadow: 0 8px 32px rgba(0,0,0,0.2);
   }
+  .modal-wide {
+    width: 1100px !important;
+    max-width: 98vw !important;
+  }
+  .plan-table-input {
+    width: 100%; border-collapse: collapse; font-size: 12px;
+    border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden;
+  }
+  .plan-table-input th {
+    background: #f0f4ff; color: #1a73e8; font-weight: 600;
+    padding: 8px 4px; border: 1px solid #e0e0e0; text-align: center; white-space: nowrap;
+  }
+  .plan-table-input td {
+    padding: 4px; border: 1px solid #e0e0e0; vertical-align: middle;
+    background: #fff;
+  }
+  .plan-table-input td input, .plan-table-input td select {
+    width: 100%; border: 1px solid #d0d0d0; border-radius: 4px;
+    padding: 4px 6px; font-size: 12px; box-sizing: border-box;
+  }
+  .plan-table-input td input:focus, .plan-table-input td select:focus {
+    border-color: #1a73e8; outline: none;
+  }
+  .plan-table-input tr:hover td { background: #f8f9ff; }
+  .plan-table-input .del-row { color: #ea4335; cursor: pointer; font-size: 14px; padding: 0 4px; }
+  .import-area {
+    width: 100%; height: 120px; border: 2px dashed #d0d0d0;
+    border-radius: 8px; padding: 12px; font-size: 12px;
+    font-family: monospace; resize: vertical; box-sizing: border-box;
+  }
+  .import-area:focus { border-color: #1a73e8; outline: none; }
   .modal h2 { font-size: 18px; margin-bottom: 16px; color: #1a73e8; }
   .form-group { margin-bottom: 14px; }
   .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; color: #555; }
@@ -738,38 +769,52 @@
 
 <!-- ===== 生产计划 - 新增/编辑计划模态框 ===== -->
 <div class="modal-overlay" id="planModal">
-  <div class="modal">
-    <h2 id="planModalTitle">新增生产计划</h2>
-    <input type="hidden" id="planEditId">
-    <div class="form-group">
-      <label>日期 <span class="required">*</span></label>
-      <input type="date" id="planDate">
+  <div class="modal modal-wide" style="padding:0;display:flex;flex-direction:column;max-height:92vh">
+    <div style="padding:20px 24px 12px;border-bottom:1px solid #eee;flex-shrink:0">
+      <h2 id="planModalTitle" style="margin:0;font-size:18px;color:#1a73e8">新增生产计划</h2>
+      <input type="hidden" id="planEditId">
     </div>
-    <div class="form-group">
-      <label>线体 <span class="required">*</span></label>
-      <select id="planLine">
-        <option value="A线">A线</option>
-        <option value="VIP线">VIP线</option>
-        <option value="B线">B线</option>
-        <option value="打包线">打包线</option>
-        <option value="其他">其他</option>
-      </select>
+    <div style="padding:12px 24px;flex-shrink:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn-primary" onclick="addPlanRow()">+ 添加行</button>
+      <button class="btn-success" onclick="showImportPanel()">导入Excel</button>
+      <span style="color:#999;font-size:12px;margin-left:auto">提示：可直接从Excel复制粘贴到表格中</span>
     </div>
-    <div class="form-group">
-      <label>目标产量（台）<span class="required">*</span></label>
-      <input type="number" id="planTarget" placeholder="如：926" min="0">
+    <div id="importPanel" style="display:none;padding:0 24px 12px;flex-shrink:0">
+      <textarea class="import-area" id="importData" placeholder="从Excel复制多行数据粘贴到这里，格式：日期 计划单号 料号 品名 数量 完成时间 备注 线体 类别 下达时间 批次号 订单批次 资产归属 MOA状态 产量备注&#10;支持Tab分隔或空格分隔"></textarea>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn-primary" onclick="parseImportData()">确认导入</button>
+        <button class="btn-outline" onclick="document.getElementById('importPanel').style.display='none'">取消</button>
+      </div>
     </div>
-    <div class="form-group">
-      <label>人员安排</label>
-      <textarea id="planWorkers" placeholder="每行一人，如：&#10;张三&#10;李四&#10;王五" style="width:100%;height:100px;border:1px solid #d0d0d0;border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical"></textarea>
+    <div style="padding:0 24px 12px;overflow:auto;flex:1">
+      <table class="plan-table-input" id="planTableInput">
+        <thead>
+          <tr>
+            <th style="width:30px">#</th>
+            <th style="width:110px">日期<span class="required">*</span></th>
+            <th style="width:100px">计划单号</th>
+            <th style="width:100px">料号</th>
+            <th style="width:120px">品名</th>
+            <th style="width:60px">数量</th>
+            <th style="width:110px">完成时间</th>
+            <th style="width:100px">备注</th>
+            <th style="width:80px">线体<span class="required">*</span></th>
+            <th style="width:70px">类别</th>
+            <th style="width:110px">下达时间</th>
+            <th style="width:90px">批次号</th>
+            <th style="width:90px">订单批次</th>
+            <th style="width:80px">资产归属</th>
+            <th style="width:70px">MOA状态</th>
+            <th style="width:100px">产量备注</th>
+            <th style="width:30px">删</th>
+          </tr>
+        </thead>
+        <tbody id="planTableBody"></tbody>
+      </table>
     </div>
-    <div class="form-group">
-      <label>备注</label>
-      <input type="text" id="planRemark" placeholder="如：加班安排、特殊情况说明">
-    </div>
-    <div class="modal-actions">
+    <div class="modal-actions" style="padding:16px 24px;border-top:1px solid #eee;margin:0;flex-shrink:0">
       <button class="btn-outline" onclick="closeModal('planModal')">取消</button>
-      <button class="btn-primary" onclick="submitPlan()">确认</button>
+      <button class="btn-primary" onclick="submitPlan()">确认保存</button>
     </div>
   </div>
 </div>
@@ -1659,55 +1704,179 @@ function exportHistoryExcel() {
 
 // ========== 生产计划模块 ==========
 // ---------- 计划 CRUD ----------
+// ========== 生产计划表格录入 ==========
 function openPlanModal(editId) {
-  document.getElementById('planEditId').value = editId || '';
-  if (editId) {
-    var p = productionPlans.find(function(x) { return x.id === editId; });
-    if (!p) return;
-    document.getElementById('planModalTitle').textContent = '编辑生产计划';
-    document.getElementById('planDate').value = p.date;
-    document.getElementById('planLine').value = p.line;
-    document.getElementById('planTarget').value = p.target;
-    document.getElementById('planWorkers').value = (p.workers || []).join('\n');
-    document.getElementById('planRemark').value = p.remark || '';
-  } else {
-    document.getElementById('planModalTitle').textContent = '新增生产计划';
-    document.getElementById('planDate').value = today();
-    document.getElementById('planLine').value = 'A线';
-    document.getElementById('planTarget').value = '';
-    document.getElementById('planWorkers').value = '';
-    document.getElementById('planRemark').value = '';
+    document.getElementById('planEditId').value = editId || '';
+    document.getElementById('importPanel').style.display = 'none';
+    var tbody = document.getElementById('planTableBody');
+    tbody.innerHTML = '';
+    if (editId) {
+      var p = productionPlans.find(function(x) { return x.id === editId; });
+      if (!p) return;
+      document.getElementById('planModalTitle').textContent = '编辑生产计划';
+      fillPlanRow(tbody, p, 1);
+    } else {
+      document.getElementById('planModalTitle').textContent = '新增生产计划';
+      addPlanRow();
+    }
+    document.getElementById('planModal').classList.add('active');
   }
-  document.getElementById('planModal').classList.add('active');
-}
 
-async function submitPlan() {
-  var date = document.getElementById('planDate').value;
-  var line = document.getElementById('planLine').value;
-  var target = parseInt(document.getElementById('planTarget').value) || 0;
-  var workersText = document.getElementById('planWorkers').value.trim();
-  var remark = document.getElementById('planRemark').value.trim();
-  var editId = document.getElementById('planEditId').value;
-  if (!date) { showToast('请选择日期'); return; }
-  if (target <= 0) { showToast('请输入目标产量'); return; }
-  var workers = workersText ? workersText.split('\n').map(function(s) { return s.trim(); }).filter(Boolean) : [];
-  if (editId) {
-    var p = productionPlans.find(function(x) { return x.id === parseInt(editId); });
-    if (p) { Object.assign(p, { date: date, line: line, target: target, workers: workers, remark: remark }); }
-  } else {
-    var exists = productionPlans.find(function(x) { return x.date === date && x.line === line; });
-    if (exists) { showToast(date + ' ' + line + ' 已有计划，请编辑现有计划'); return; }
-    productionPlans.push({
-      id: Date.now(), date: date, line: line, target: target,
-      workers: workers, remark: remark,
-      createdBy: currentUser ? currentUser.username : '',
-      createdAt: new Date().toISOString()
-    });
+  function addPlanRow(data) {
+    var tbody = document.getElementById('planTableBody');
+    var idx = tbody.children.length + 1;
+    var d = data || {};
+    var row = document.createElement('tr');
+    row.innerHTML =
+      '<td style="text-align:center;color:#999">' + idx + '</td>' +
+      '<td><input type="date" class="p-date" value="' + (d.date || today()) + '"></td>' +
+      '<td><input type="text" class="p-planNo" placeholder="单号" value="' + escHtml(d.planNo || '') + '"></td>' +
+      '<td><input type="text" class="p-materialNo" placeholder="料号" value="' + escHtml(d.materialNo || '') + '"></td>' +
+      '<td><input type="text" class="p-productName" placeholder="品名" value="' + escHtml(d.productName || '') + '"></td>' +
+      '<td><input type="number" class="p-qty" placeholder="0" value="' + (d.qty || '') + '"></td>' +
+      '<td><input type="date" class="p-finishTime" value="' + (d.finishTime || '') + '"></td>' +
+      '<td><input type="text" class="p-remark" placeholder="备注" value="' + escHtml(d.remark || '') + '"></td>' +
+      '<td><select class="p-line">' +
+        '<option value="A线"' + (d.line==='A线'?' selected':'') + '>A线</option>' +
+        '<option value="VIP线"' + (d.line==='VIP线'?' selected':'') + '>VIP线</option>' +
+        '<option value="B线"' + (d.line==='B线'?' selected':'') + '>B线</option>' +
+        '<option value="打包线"' + (d.line==='打包线'?' selected':'') + '>打包线</option>' +
+        '<option value="其他"' + (d.line==='其他'?' selected':'') + '>其他</option>' +
+      '</select></td>' +
+      '<td><input type="text" class="p-category" placeholder="类别" value="' + escHtml(d.category || '') + '"></td>' +
+      '<td><input type="date" class="p-issueTime" value="' + (d.issueTime || '') + '"></td>' +
+      '<td><input type="text" class="p-batchNo" placeholder="批次号" value="' + escHtml(d.batchNo || '') + '"></td>' +
+      '<td><input type="text" class="p-orderBatch" placeholder="订单批次" value="' + escHtml(d.orderBatch || '') + '"></td>' +
+      '<td><input type="text" class="p-assetBelong" placeholder="归属" value="' + escHtml(d.assetBelong || '') + '"></td>' +
+      '<td><input type="text" class="p-moaStatus" placeholder="状态" value="' + escHtml(d.moaStatus || '') + '"></td>' +
+      '<td><input type="text" class="p-outputRemark" placeholder="产量备注" value="' + escHtml(d.outputRemark || '') + '"></td>' +
+      '<td style="text-align:center"><span class="del-row" onclick="this.closest(\'tr\').remove();reindexPlanRows()">×</span></td>';
+    tbody.appendChild(row);
   }
-  productionPlans.sort(function(a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
-  await save(); closeModal('planModal'); renderPlans();
-  showToast(editId ? '计划已更新' : '计划已创建');
-}
+
+  function fillPlanRow(tbody, p, idx) {
+    var row = document.createElement('tr');
+    row.innerHTML =
+      '<td style="text-align:center;color:#999">' + idx + '</td>' +
+      '<td><input type="date" class="p-date" value="' + (p.date || '') + '"></td>' +
+      '<td><input type="text" class="p-planNo" placeholder="单号" value="' + escHtml(p.planNo || '') + '"></td>' +
+      '<td><input type="text" class="p-materialNo" placeholder="料号" value="' + escHtml(p.materialNo || '') + '"></td>' +
+      '<td><input type="text" class="p-productName" placeholder="品名" value="' + escHtml(p.productName || '') + '"></td>' +
+      '<td><input type="number" class="p-qty" placeholder="0" value="' + (p.qty || '') + '"></td>' +
+      '<td><input type="date" class="p-finishTime" value="' + (p.finishTime || '') + '"></td>' +
+      '<td><input type="text" class="p-remark" placeholder="备注" value="' + escHtml(p.remark || '') + '"></td>' +
+      '<td><select class="p-line">' +
+        '<option value="A线"' + (p.line==='A线'?' selected':'') + '>A线</option>' +
+        '<option value="VIP线"' + (p.line==='VIP线'?' selected':'') + '>VIP线</option>' +
+        '<option value="B线"' + (p.line==='B线'?' selected':'') + '>B线</option>' +
+        '<option value="打包线"' + (p.line==='打包线'?' selected':'') + '>打包线</option>' +
+        '<option value="其他"' + (p.line==='其他'?' selected':'') + '>其他</option>' +
+      '</select></td>' +
+      '<td><input type="text" class="p-category" placeholder="类别" value="' + escHtml(p.category || '') + '"></td>' +
+      '<td><input type="date" class="p-issueTime" value="' + (p.issueTime || '') + '"></td>' +
+      '<td><input type="text" class="p-batchNo" placeholder="批次号" value="' + escHtml(p.batchNo || '') + '"></td>' +
+      '<td><input type="text" class="p-orderBatch" placeholder="订单批次" value="' + escHtml(p.orderBatch || '') + '"></td>' +
+      '<td><input type="text" class="p-assetBelong" placeholder="归属" value="' + escHtml(p.assetBelong || '') + '"></td>' +
+      '<td><input type="text" class="p-moaStatus" placeholder="状态" value="' + escHtml(p.moaStatus || '') + '"></td>' +
+      '<td><input type="text" class="p-outputRemark" placeholder="产量备注" value="' + escHtml(p.outputRemark || '') + '"></td>' +
+      '<td style="text-align:center"><span class="del-row" onclick="this.closest(\'tr\').remove();reindexPlanRows()">×</span></td>';
+    tbody.appendChild(row);
+  }
+
+  function reindexPlanRows() {
+    var rows = document.querySelectorAll('#planTableBody tr');
+    rows.forEach(function(r, i) { r.cells[0].textContent = i + 1; });
+  }
+
+  function showImportPanel() {
+    var panel = document.getElementById('importPanel');
+    panel.style.display = panel.style.display === 'none' ? '' : 'none';
+    if (panel.style.display !== 'none') document.getElementById('importData').focus();
+  }
+
+  function parseImportData() {
+    var text = document.getElementById('importData').value.trim();
+    if (!text) { showToast('请粘贴数据'); return; }
+    var lines = text.split('\n').filter(function(l) { return l.trim(); });
+    var imported = 0;
+    lines.forEach(function(line) {
+      var parts = line.split('\t');
+      if (parts.length < 3) parts = line.split(/\s{2,}/);
+      if (parts.length < 2) return;
+      var d = {
+        date: parts[0] ? parts[0].trim() : today(),
+        planNo: parts[1] ? parts[1].trim() : '',
+        materialNo: parts[2] ? parts[2].trim() : '',
+        productName: parts[3] ? parts[3].trim() : '',
+        qty: parts[4] ? parseInt(parts[4].trim()) || 0 : 0,
+        finishTime: parts[5] ? parts[5].trim() : '',
+        remark: parts[6] ? parts[6].trim() : '',
+        line: parts[7] ? parts[7].trim() : 'A线',
+        category: parts[8] ? parts[8].trim() : '',
+        issueTime: parts[9] ? parts[9].trim() : '',
+        batchNo: parts[10] ? parts[10].trim() : '',
+        orderBatch: parts[11] ? parts[11].trim() : '',
+        assetBelong: parts[12] ? parts[12].trim() : '',
+        moaStatus: parts[13] ? parts[13].trim() : '',
+        outputRemark: parts[14] ? parts[14].trim() : ''
+      };
+      // 转换日期格式
+      if (d.date && d.date.match(/^\d{4}\/\d{2}\/\d{2}$/)) d.date = d.date.replace(/\//g, '-');
+      if (d.finishTime && d.finishTime.match(/^\d{4}\/\d{2}\/\d{2}$/)) d.finishTime = d.finishTime.replace(/\//g, '-');
+      if (d.issueTime && d.issueTime.match(/^\d{4}\/\d{2}\/\d{2}$/)) d.issueTime = d.issueTime.replace(/\//g, '-');
+      addPlanRow(d);
+      imported++;
+    });
+    document.getElementById('importPanel').style.display = 'none';
+    document.getElementById('importData').value = '';
+    showToast('已导入 ' + imported + ' 行数据');
+  }
+
+  async function submitPlan() {
+    var rows = document.querySelectorAll('#planTableBody tr');
+    if (rows.length === 0) { showToast('请至少添加一行'); return; }
+    var editId = document.getElementById('planEditId').value;
+    var saved = [];
+    rows.forEach(function(row) {
+      var getVal = function(cls) { var el = row.querySelector('.' + cls); return el ? el.value.trim() : ''; };
+      var getNum = function(cls) { var el = row.querySelector('.' + cls); return el ? parseInt(el.value) || 0 : 0; };
+      var date = getVal('p-date');
+      var line = getVal('p-line');
+      if (!date || !line) return;
+      var plan = {
+        id: editId ? parseInt(editId) : Date.now() + Math.random(),
+        date: date,
+        planNo: getVal('p-planNo'),
+        materialNo: getVal('p-materialNo'),
+        productName: getVal('p-productName'),
+        qty: getNum('p-qty'),
+        finishTime: getVal('p-finishTime'),
+        remark: getVal('p-remark'),
+        line: line,
+        category: getVal('p-category'),
+        issueTime: getVal('p-issueTime'),
+        batchNo: getVal('p-batchNo'),
+        orderBatch: getVal('p-orderBatch'),
+        assetBelong: getVal('p-assetBelong'),
+        moaStatus: getVal('p-moaStatus'),
+        outputRemark: getVal('p-outputRemark'),
+        createdBy: currentUser ? currentUser.username : '',
+        createdAt: new Date().toISOString()
+      };
+      saved.push(plan);
+    });
+    if (saved.length === 0) { showToast('请填写完整的日期和线体'); return; }
+    // 编辑模式：替换原记录
+    if (editId) {
+      var idx = productionPlans.findIndex(function(x) { return x.id === parseInt(editId); });
+      if (idx >= 0) productionPlans.splice(idx, 1, saved[0]);
+    } else {
+      productionPlans = productionPlans.concat(saved);
+    }
+    productionPlans.sort(function(a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+    await save(); closeModal('planModal'); renderPlans();
+    showToast(editId ? '计划已更新' : '已保存 ' + saved.length + ' 条计划');
+  }
 
 async function deletePlan(id) {
   if (!confirm('确定删除此生产计划？相关日报不会被删除。')) return;
@@ -1716,66 +1885,69 @@ async function deletePlan(id) {
 }
 
 // ---------- 计划渲染 ----------
-function renderPlans() {
-  var dateFilter = document.getElementById('planDateFilter').value;
-  var lineFilter = document.getElementById('planLineFilter').value;
-  var container = document.getElementById('planCards');
-  var reportSection = document.getElementById('reportSection');
-  var filtered = productionPlans.slice();
-  if (dateFilter) filtered = filtered.filter(function(x) { return x.date === dateFilter; });
-  if (lineFilter) filtered = filtered.filter(function(x) { return x.line === lineFilter; });
-  filtered.sort(function(a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+  function renderPlans() {
+    var dateFilter = document.getElementById('planDateFilter').value;
+    var lineFilter = document.getElementById('planLineFilter').value;
+    var container = document.getElementById('planCards');
+    var reportSection = document.getElementById('reportSection');
+    var filtered = productionPlans.slice();
+    if (dateFilter) filtered = filtered.filter(function(x) { return x.date === dateFilter; });
+    if (lineFilter) filtered = filtered.filter(function(x) { return x.line === lineFilter; });
+    filtered.sort(function(a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
 
-  if (filtered.length === 0) {
-    container.innerHTML = '<div class="empty" style="grid-column:1/-1"><div class="icon">📋</div><p>暂无生产计划，点击「+ 新增计划」开始</p></div>';
-    reportSection.style.display = 'none';
+    if (filtered.length === 0) {
+      container.innerHTML = '<div class="empty" style="grid-column:1/-1"><div class="icon">📋</div><p>暂无生产计划，点击「+ 新增计划」开始</p></div>';
+      reportSection.style.display = 'none';
+      updatePlanStats(dateFilter);
+      return;
+    }
+
+    var html = '';
+    filtered.forEach(function(p) {
+      var reps = dailyReports.filter(function(r) { return r.date === p.date && r.line === p.line; });
+      var actualTotal = reps.reduce(function(s, r) { return s + (r.actual || 0); }, 0);
+      var targetQty = p.qty || p.target || 0;  // 兼容旧数据
+      var rate = targetQty > 0 ? Math.round(actualTotal / targetQty * 100) : 0;
+      var cls = { 'A线': '', 'VIP线': 'vip', 'B线': 'b', '打包线': 'pack' }[p.line] || '';
+      var pCls = rate >= 100 ? 'ok' : rate >= 80 ? 'low' : 'danger';
+      html += '<div class="plan-card ' + cls + '">' +
+        '<div class="plan-card-header"><span class="plan-card-title">' + p.date + ' · ' + p.line + '</span>' +
+        '<span class="badge-' + (rate >= 100 ? 'ok' : rate > 0 ? 'low' : 'pending') + '">' + rate + '%</span></div>' +
+        '<div class="plan-card-body">' +
+        (p.planNo ? '<div><span class="label">单号：</span>' + escHtml(p.planNo) + '</div>' : '') +
+        (p.materialNo ? '<div><span class="label">料号：</span>' + escHtml(p.materialNo) + '</div>' : '') +
+        (p.productName ? '<div><span class="label">品名：</span>' + escHtml(p.productName) + '</div>' : '') +
+        '<div><span class="label">数量：</span>' + targetQty + (p.category ? ' (' + escHtml(p.category) + ')' : '') + '</div>' +
+        '<div><span class="label">实际：</span>' + actualTotal + ' 台</div>' +
+        (p.remark ? '<div><span class="label">备注：</span>' + escHtml(p.remark) + '</div>' : '') +
+        '</div><div class="plan-progress">' +
+        '<div class="progress-bar"><div class="progress-fill ' + pCls + '" style="width:' + Math.min(rate, 100) + '%"></div></div>' +
+        '<div class="progress-text">' + actualTotal + ' / ' + targetQty + ' 台</div></div>' +
+        '<div class="plan-card-actions">' +
+        '<button class="btn-outline" onclick="openPlanModal(' + p.id + ')" style="padding:4px 10px;font-size:12px">编辑</button>' +
+        '<button class="btn-outline" onclick="deletePlan(' + p.id + ')" style="padding:4px 10px;font-size:12px;color:#ea4335">删除</button>' +
+        '</div></div>';
+    });
+    container.innerHTML = html;
+    if (dateFilter) { renderReportSummary(dateFilter, lineFilter); reportSection.style.display = ''; }
+    else { reportSection.style.display = 'none'; }
     updatePlanStats(dateFilter);
-    return;
   }
 
-  var html = '';
-  filtered.forEach(function(p) {
-    var reps = dailyReports.filter(function(r) { return r.date === p.date && r.line === p.line; });
-    var actualTotal = reps.reduce(function(s, r) { return s + (r.actual || 0); }, 0);
-    var rate = p.target > 0 ? Math.round(actualTotal / p.target * 100) : 0;
-    var cls = { 'A线': '', 'VIP线': 'vip', 'B线': 'b', '打包线': 'pack' }[p.line] || '';
-    var pCls = rate >= 100 ? 'ok' : rate >= 80 ? 'low' : 'danger';
-    html += '<div class="plan-card ' + cls + '">' +
-      '<div class="plan-card-header"><span class="plan-card-title">' + p.date + ' · ' + p.line + '</span>' +
-      '<span class="badge-' + (rate >= 100 ? 'ok' : rate > 0 ? 'low' : 'pending') + '">' + rate + '%</span></div>' +
-      '<div class="plan-card-body">' +
-      '<div><span class="label">目标：</span>' + p.target + ' 台</div>' +
-      '<div><span class="label">实际：</span>' + actualTotal + ' 台</div>' +
-      '<div><span class="label">人员：</span>' + (p.workers && p.workers.length > 0 ? p.workers.join('、') : '未指定') + '</div>' +
-      (p.remark ? '<div><span class="label">备注：</span>' + escHtml(p.remark) + '</div>' : '') +
-      '</div><div class="plan-progress">' +
-      '<div class="progress-bar"><div class="progress-fill ' + pCls + '" style="width:' + Math.min(rate, 100) + '%"></div></div>' +
-      '<div class="progress-text">' + actualTotal + ' / ' + p.target + ' 台</div></div>' +
-      '<div class="plan-card-actions">' +
-      '<button class="btn-outline" onclick="openPlanModal(' + p.id + ')" style="padding:4px 10px;font-size:12px">编辑</button>' +
-      '<button class="btn-outline" onclick="deletePlan(' + p.id + ')" style="padding:4px 10px;font-size:12px;color:#ea4335">删除</button>' +
-      '</div></div>';
-  });
-  container.innerHTML = html;
-  if (dateFilter) { renderReportSummary(dateFilter, lineFilter); reportSection.style.display = ''; }
-  else { reportSection.style.display = 'none'; }
-  updatePlanStats(dateFilter);
-}
-
-function updatePlanStats(dateFilter) {
-  var d = dateFilter || today();
-  var plans = productionPlans.filter(function(x) { return x.date === d; });
-  var totalTarget = plans.reduce(function(s, p) { return s + p.target; }, 0);
-  var totalActual = plans.reduce(function(s, p) {
-    var reps = dailyReports.filter(function(r) { return r.date === p.date && r.line === p.line; });
-    return s + reps.reduce(function(ss, r) { return ss + (r.actual || 0); }, 0);
-  }, 0);
-  var rate = totalTarget > 0 ? Math.round(totalActual / totalTarget * 100) : 0;
-  document.getElementById('statPlanTarget').textContent = totalTarget;
-  document.getElementById('statPlanActual').textContent = totalActual;
-  document.getElementById('statPlanRate').textContent = rate + '%';
-  document.getElementById('statPlanLines').textContent = plans.length;
-}
+  function updatePlanStats(dateFilter) {
+    var d = dateFilter || today();
+    var plans = productionPlans.filter(function(x) { return x.date === d; });
+    var totalTarget = plans.reduce(function(s, p) { return s + (p.qty || p.target || 0); }, 0);
+    var totalActual = plans.reduce(function(s, p) {
+      var reps = dailyReports.filter(function(r) { return r.date === p.date && r.line === p.line; });
+      return s + reps.reduce(function(ss, r) { return ss + (r.actual || 0); }, 0);
+    }, 0);
+    var rate = totalTarget > 0 ? Math.round(totalActual / totalTarget * 100) : 0;
+    document.getElementById('statPlanTarget').textContent = totalTarget;
+    document.getElementById('statPlanActual').textContent = totalActual;
+    document.getElementById('statPlanRate').textContent = rate + '%';
+    document.getElementById('statPlanLines').textContent = plans.length;
+  }
 
 // ---------- 日报 CRUD ----------
 function openReportModal() {
@@ -1847,25 +2019,26 @@ function renderReportSummary(date, lineFilter) {
   var totalHours = reports.reduce(function(s, r) { return s + (r.workers || []).reduce(function(ss, w) { return ss + (w.hours || 0); }, 0); }, 0);
   var issueCount = reports.filter(function(r) { return r.issue; }).length;
   var plans = productionPlans.filter(function(p) { return p.date === d; });
-  var totalTarget = plans.reduce(function(s, p) { return s + p.target; }, 0);
-  var rate = totalTarget > 0 ? Math.round(totalActual / totalTarget * 100) : 0;
-  summaryEl.innerHTML =
-    '<div class="report-summary-item"><div class="val" style="color:#1a73e8">' + totalTarget + '</div><div class="lbl">目标产量</div></div>' +
-    '<div class="report-summary-item"><div class="val" style="color:#34a853">' + totalActual + '</div><div class="lbl">实际产量</div></div>' +
-    '<div class="report-summary-item"><div class="val" style="color:' + (rate >= 100 ? '#34a853' : '#ea4335') + '">' + rate + '%</div><div class="lbl">达成率</div></div>' +
-    '<div class="report-summary-item"><div class="val">' + totalWorkers + '</div><div class="lbl">出勤人数</div></div>' +
-    '<div class="report-summary-item"><div class="val">' + totalHours + 'h</div><div class="lbl">总工时</div></div>' +
-    (issueCount > 0 ? '<div class="report-summary-item"><div class="val" style="color:#ea4335">' + issueCount + '</div><div class="lbl">异常线体</div></div>' : '');
-  if (reports.length === 0) { detailEl.innerHTML = '<div class="empty"><p>当日暂无日报数据</p></div>'; return; }
-  var detailHtml = '';
-  reports.forEach(function(r) {
-    var plan = plans.find(function(p) { return p.line === r.line; });
-    detailHtml += '<div style="margin-bottom:12px;padding:12px;background:#f8f9fa;border-radius:8px">' +
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">' +
-      '<strong>' + r.line + '</strong>' +
-      '<span>产量：<b>' + r.actual + '</b>' + (plan ? ' / 目标 ' + plan.target + '（' + Math.round(r.actual / plan.target * 100) + '%）' : '') + '</span>' +
-      '<span style="font-size:12px;color:#999">提交人：' + (r.createdBy || '-') + '</span>' +
-      '<button class="btn-outline" onclick="deleteReport(' + r.id + ')" style="padding:2px 8px;font-size:11px;color:#ea4335">删除</button></div>';
+    var totalTarget = plans.reduce(function(s, p) { return s + (p.qty || p.target || 0); }, 0);
+    var rate = totalTarget > 0 ? Math.round(totalActual / totalTarget * 100) : 0;
+    summaryEl.innerHTML =
+      '<div class="report-summary-item"><div class="val" style="color:#1a73e8">' + totalTarget + '</div><div class="lbl">目标产量</div></div>' +
+      '<div class="report-summary-item"><div class="val" style="color:#34a853">' + totalActual + '</div><div class="lbl">实际产量</div></div>' +
+      '<div class="report-summary-item"><div class="val" style="color:' + (rate >= 100 ? '#34a853' : '#ea4335') + '">' + rate + '%</div><div class="lbl">达成率</div></div>' +
+      '<div class="report-summary-item"><div class="val">' + totalWorkers + '</div><div class="lbl">出勤人数</div></div>' +
+      '<div class="report-summary-item"><div class="val">' + totalHours + 'h</div><div class="lbl">总工时</div></div>' +
+      (issueCount > 0 ? '<div class="report-summary-item"><div class="val" style="color:#ea4335">' + issueCount + '</div><div class="lbl">异常线体</div></div>' : '');
+    if (reports.length === 0) { detailEl.innerHTML = '<div class="empty"><p>当日暂无日报数据</p></div>'; return; }
+    var detailHtml = '';
+    reports.forEach(function(r) {
+      var plan = plans.find(function(p) { return p.line === r.line; });
+      var planQty = plan ? (plan.qty || plan.target || 0) : 0;
+      detailHtml += '<div style="margin-bottom:12px;padding:12px;background:#f8f9fa;border-radius:8px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">' +
+        '<strong>' + r.line + '</strong>' +
+        '<span>产量：<b>' + r.actual + '</b>' + (planQty > 0 ? ' / 目标 ' + planQty + '（' + Math.round(r.actual / planQty * 100) + '%）' : '') + '</span>' +
+        '<span style="font-size:12px;color:#999">提交人：' + (r.createdBy || '-') + '</span>' +
+        '<button class="btn-outline" onclick="deleteReport(' + r.id + ')" style="padding:2px 8px;font-size:11px;color:#ea4335">删除</button></div>';
     if (r.workers && r.workers.length > 0) {
       detailHtml += '<table class="flow-table" style="width:100%;font-size:12px"><thead><tr>' +
       '<th style="width:70px">姓名</th><th>今日完成工作</th><th style="width:50px">工时</th><th style="width:60px">状态</th></tr></thead><tbody>';
