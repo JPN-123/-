@@ -1319,6 +1319,10 @@ window.addEventListener('message', function(e) {
     await initLoadPromise;
     dataLoaded = true;
     if (currentUser) showApp();
+    // 一次性迁移：从JSON导入历史入库流水
+    if (inboundRecords.length === 0) {
+      runInboundMigration();
+    }
   } catch (e) {
     console.error('Init error:', e);
     showToast('初始化失败，请刷新页面重试');
@@ -1329,6 +1333,37 @@ window.addEventListener('message', function(e) {
     if (GITHUB_TOKEN && gistId && !isSaving) loadData();
   }, 15000);
 })();
+
+async function runInboundMigration() {
+  try {
+    var res = await fetch('inbound_migration.json');
+    if (!res.ok) return;
+    var migData = await res.json();
+    if (!Array.isArray(migData) || migData.length === 0) return;
+    // 合并
+    inboundRecords = migData;
+    // 更新 brandOrders 的完工数量
+    var updated = 0;
+    brandOrders.forEach(function(order) {
+      var totalInbound = 0;
+      migData.forEach(function(rec) {
+        if (rec.orderNo === order.orderNo) {
+          totalInbound += (rec.inboundQty || 0);
+        }
+      });
+      if (totalInbound > 0) {
+        order.completedQty = totalInbound;
+        order.mesStatus = totalInbound >= (order.qty || 0) ? '已入库' : '未入库';
+        updated++;
+      }
+    });
+    // 保存到Gist
+    await save();
+    showToast('已导入 ' + migData.length + ' 条历史入库流水，更新 ' + updated + ' 条订单');
+  } catch (e) {
+    console.warn('Inbound migration skipped:', e);
+  }
+}
 </script>
 </body>
 </html>
