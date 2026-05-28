@@ -948,14 +948,17 @@ function closeInboundModal() {
   document.getElementById('inboundModal').style.display = 'none';
 }
 function renderInboundQuery() {
-  var keyword = document.getElementById('inboundSearch').value.trim().toLowerCase();
+  var raw = document.getElementById('inboundSearch').value.trim().toLowerCase();
+  var terms = raw ? raw.split(/[,，\s\n]+/).filter(function(s){ return s.length>0; }) : [];
   var tbody = document.getElementById('inboundQueryBody');
   var html = '';
   var selected = 0;
-  var filtered = keyword ? brandOrders.filter(function(o) {
-    return (o.orderNo && o.orderNo.toLowerCase().indexOf(keyword) !== -1) ||
-           (o.materialNo && o.materialNo.toLowerCase().indexOf(keyword) !== -1) ||
-           (o.productName && o.productName.toLowerCase().indexOf(keyword) !== -1);
+  var filtered = terms.length > 0 ? brandOrders.filter(function(o) {
+    return terms.some(function(term) {
+      return (o.orderNo && o.orderNo.toLowerCase().indexOf(term) !== -1) ||
+             (o.materialNo && o.materialNo.toLowerCase().indexOf(term) !== -1) ||
+             (o.productName && o.productName.toLowerCase().indexOf(term) !== -1);
+    });
   }) : brandOrders;
   filtered.forEach(function(o) {
     var checked = o._inboundSelected ? 'checked' : '';
