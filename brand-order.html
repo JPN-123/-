@@ -240,6 +240,7 @@
   <div class="toolbar-right">
     <button class="btn-primary" onclick="openOrderModal()">+ 新增订单</button>
     <button class="btn-warning" onclick="openInboundModal()">&#128229; 入库</button>
+    <button class="btn-purple" onclick="openInboundHistoryModal()">&#128197; 入库流水</button>
     <button class="btn-success" onclick="exportToExcel()">&#128190; 导出Excel</button>
     <button class="btn-outline" onclick="location.reload()">&#128260; 刷新</button>
   </div>
@@ -352,6 +353,7 @@
               <th>订单单号</th>
               <th>料号</th>
               <th>品名</th>
+              <th>仓库</th>
               <th style="width:80px">订单数量</th>
               <th style="width:100px">调入数量</th>
               <th style="width:120px">调入单号</th>
@@ -365,6 +367,45 @@
     <div class="modal-footer">
       <button class="btn-outline" onclick="closeInboundModal()">取消</button>
       <button class="btn-primary" onclick="submitInbound()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 入库流水模态框 -->
+<div class="modal-overlay" id="inboundHistoryModal">
+  <div class="modal" style="max-width:1000px">
+    <div class="modal-header">
+      <h3>&#128197; 入库流水</h3>
+      <span class="close" onclick="closeInboundHistoryModal()">&times;</span>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <input type="date" id="historyFilterDate" onchange="renderInboundHistory()" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px">
+        <input type="text" id="historyFilterSearch" placeholder="订单号/料号/品名" oninput="renderInboundHistory()" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;width:200px">
+        <button class="btn-success" onclick="exportInboundHistory()" style="margin-left:auto">&#128190; 导出流水</button>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>入库时间</th>
+              <th>订单单号</th>
+              <th>料号</th>
+              <th>品名</th>
+              <th>仓库</th>
+              <th>订单数量</th>
+              <th>调入数量</th>
+              <th>调入单号</th>
+              <th>操作人</th>
+            </tr>
+          </thead>
+          <tbody id="inboundHistoryBody"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:10px;font-size:12px;color:#666">共 <span id="inboundHistoryCount">0</span> 条记录</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="closeInboundHistoryModal()">关闭</button>
     </div>
   </div>
 </div>
@@ -396,6 +437,7 @@ let currentUser = null;
 let productionPlans = [];
 let dailyReports = [];
 let brandOrders = [];
+let inboundRecords = [];
 let nextId = 1001;
 let nextOutId = 1;
 let gistId = null;
@@ -470,7 +512,7 @@ function getDefaultData() {
   return {
     items: [], history: [], persons: [], confirmers: [],
     pendingOuts: [], nextId: 1001, nextOutId: 1,
-    productionPlans: [], dailyReports: [], brandOrders: [],
+    productionPlans: [], dailyReports: [], brandOrders: [], inboundRecords: [],
     users: [{ username: 'admin', password: '8888', role: 'super' }],
     _appVersion: 9
   };
@@ -488,6 +530,7 @@ function applyData(data) {
   productionPlans = data.productionPlans || [];
   dailyReports = data.dailyReports || [];
   brandOrders = data.brandOrders || [];
+  inboundRecords = data.inboundRecords || [];
   if (!data.users || data.users.length === 0) {
     users = [{ username: 'admin', password: '8888', role: 'super' }];
   }
@@ -500,7 +543,7 @@ function applyData(data) {
 function collectData() {
   return {
     items, history, persons, confirmers, pendingOuts, nextId, nextOutId, users,
-    productionPlans, dailyReports, brandOrders,
+    productionPlans, dailyReports, brandOrders, inboundRecords,
     _appVersion: 9
   };
 }
@@ -968,12 +1011,13 @@ function renderInboundQuery() {
       '<td>' + escHtml(o.orderNo || '-') + '</td>' +
       '<td>' + escHtml(o.materialNo || '-') + '</td>' +
       '<td>' + escHtml(o.productName || '-') + '</td>' +
+      '<td>' + escHtml(o.warehouse || '-') + '</td>' +
       '<td style="text-align:right;font-weight:600">' + (o.qty || 0) + '</td>' +
       '<td><input type="number" class="i-qty" placeholder="0" value="' + (o._inboundQty || '') + '" style="width:100%;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right" onchange="updateInboundQty(\'' + escHtml(o.orderNo) + '\',this.value)"></td>' +
       '<td><input type="text" class="i-transferNo" placeholder="调入单号" value="' + escHtml(o._inboundTransferNo || '') + '" style="width:100%;padding:4px;border:1px solid #ddd;border-radius:4px" onchange="updateInboundTransferNo(\'' + escHtml(o.orderNo) + '\',this.value)"></td>' +
     '</tr>';
   });
-  tbody.innerHTML = html || '<tr><td colspan="7" style="text-align:center;color:#999;padding:20px">无匹配订单</td></tr>';
+  tbody.innerHTML = html || '<tr><td colspan="8" style="text-align:center;color:#999;padding:20px">无匹配订单</td></tr>';
   document.getElementById('inboundSelectedCount').textContent = selected;
 }
 function toggleInboundSelect(orderNo, checked) {
@@ -990,12 +1034,29 @@ function updateInboundTransferNo(orderNo, val) {
 }
 function submitInbound() {
   var updated = 0;
+  var now = new Date().toISOString();
+  var operator = currentUser ? currentUser.username : 'admin';
   brandOrders.forEach(function(o) {
     if (o._inboundSelected && o._inboundQty) {
-      o.completedQty = parseInt(o._inboundQty) || 0;
+      var qty = parseInt(o._inboundQty) || 0;
+      o.completedQty = qty;
       o.mesStatus = o.completedQty >= o.qty ? '已入库' : '未入库';
+      // 保存流水记录
+      inboundRecords.push({
+        id: Date.now() + Math.random().toString(36).substr(2, 6),
+        orderNo: o.orderNo,
+        materialNo: o.materialNo,
+        productName: o.productName,
+        warehouse: o.warehouse,
+        qty: o.qty,
+        inboundQty: qty,
+        transferNo: o._inboundTransferNo || '',
+        operator: operator,
+        createTime: now
+      });
       o._inboundSelected = false;
       o._inboundQty = '';
+      o._inboundTransferNo = '';
       updated++;
     }
   });
@@ -1009,6 +1070,93 @@ function submitInbound() {
   } else {
     showToast('请至少选择一条订单并填入调入数量');
   }
+}
+
+// ========== 入库流水 ==========
+function openInboundHistoryModal() {
+  document.getElementById('inboundHistoryModal').style.display = 'flex';
+  document.getElementById('historyFilterDate').value = '';
+  document.getElementById('historyFilterSearch').value = '';
+  renderInboundHistory();
+}
+function closeInboundHistoryModal() {
+  document.getElementById('inboundHistoryModal').style.display = 'none';
+}
+function renderInboundHistory() {
+  var dateFilter = document.getElementById('historyFilterDate').value;
+  var searchRaw = document.getElementById('historyFilterSearch').value.trim().toLowerCase();
+  var tbody = document.getElementById('inboundHistoryBody');
+  var html = '';
+  var filtered = inboundRecords.slice().sort(function(a, b) { return b.createTime.localeCompare(a.createTime); });
+  if (dateFilter) {
+    filtered = filtered.filter(function(r) { return r.createTime && r.createTime.indexOf(dateFilter) === 0; });
+  }
+  if (searchRaw) {
+    var terms = searchRaw.split(/[,，\s\n]+/).filter(function(s){ return s.length>0; });
+    filtered = filtered.filter(function(r) {
+      return terms.some(function(term) {
+        return (r.orderNo && r.orderNo.toLowerCase().indexOf(term) !== -1) ||
+               (r.materialNo && r.materialNo.toLowerCase().indexOf(term) !== -1) ||
+               (r.productName && r.productName.toLowerCase().indexOf(term) !== -1);
+      });
+    });
+  }
+  filtered.forEach(function(r) {
+    var dt = r.createTime ? r.createTime.replace('T', ' ').substr(0, 19) : '-';
+    html += '<tr>' +
+      '<td>' + dt + '</td>' +
+      '<td>' + escHtml(r.orderNo || '-') + '</td>' +
+      '<td>' + escHtml(r.materialNo || '-') + '</td>' +
+      '<td>' + escHtml(r.productName || '-') + '</td>' +
+      '<td>' + escHtml(r.warehouse || '-') + '</td>' +
+      '<td style="text-align:right">' + (r.qty || 0) + '</td>' +
+      '<td style="text-align:right;font-weight:600;color:#34a853">' + (r.inboundQty || 0) + '</td>' +
+      '<td>' + escHtml(r.transferNo || '-') + '</td>' +
+      '<td>' + escHtml(r.operator || '-') + '</td>' +
+    '</tr>';
+  });
+  tbody.innerHTML = html || '<tr><td colspan="9" style="text-align:center;color:#999;padding:20px">暂无入库记录</td></tr>';
+  document.getElementById('inboundHistoryCount').textContent = filtered.length;
+}
+function exportInboundHistory() {
+  var dateFilter = document.getElementById('historyFilterDate').value;
+  var searchRaw = document.getElementById('historyFilterSearch').value.trim().toLowerCase();
+  var filtered = inboundRecords.slice().sort(function(a, b) { return b.createTime.localeCompare(a.createTime); });
+  if (dateFilter) {
+    filtered = filtered.filter(function(r) { return r.createTime && r.createTime.indexOf(dateFilter) === 0; });
+  }
+  if (searchRaw) {
+    var terms = searchRaw.split(/[,，\s\n]+/).filter(function(s){ return s.length>0; });
+    filtered = filtered.filter(function(r) {
+      return terms.some(function(term) {
+        return (r.orderNo && r.orderNo.toLowerCase().indexOf(term) !== -1) ||
+               (r.materialNo && r.materialNo.toLowerCase().indexOf(term) !== -1) ||
+               (r.productName && r.productName.toLowerCase().indexOf(term) !== -1);
+      });
+    });
+  }
+  var headers = ['入库时间','订单单号','料号','品名','仓库','订单数量','调入数量','调入单号','操作人'];
+  var rows = filtered.map(function(r) {
+    return [
+      r.createTime ? r.createTime.replace('T', ' ').substr(0, 19) : '',
+      r.orderNo || '',
+      r.materialNo || '',
+      r.productName || '',
+      r.warehouse || '',
+      r.qty || 0,
+      r.inboundQty || 0,
+      r.transferNo || '',
+      r.operator || ''
+    ];
+  });
+  var csv = '\uFEFF' + headers.join('\t') + '\n';
+  rows.forEach(function(row) { csv += row.join('\t') + '\n'; });
+  var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  var link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = '入库流水_' + new Date().toISOString().split('T')[0] + '.csv';
+  link.click();
+  showToast('已导出 ' + filtered.length + ' 条入库流水');
 }
 
 function exportToExcel() {
