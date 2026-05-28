@@ -858,6 +858,7 @@ let saveTimer = null;
 let dataLoaded = false;
 let productionPlans = [];
 let dailyReports = [];
+let brandOrders = [];
 let currentTab = 'inventory';
 
 function today() { return new Date().toISOString().split('T')[0]; }
@@ -965,7 +966,7 @@ function getDefaultData() {
   return {
     items: [], history: [], persons: [], confirmers: [],
     pendingOuts: [], nextId: 1001, nextOutId: 1,
-    productionPlans: [], dailyReports: [],
+    productionPlans: [], dailyReports: [], brandOrders: [],
     users: [
       { username: 'admin', password: '8888', role: 'super' }
     ],
@@ -984,6 +985,7 @@ function applyData(data) {
   users = data.users || [];
   productionPlans = data.productionPlans || [];
   dailyReports = data.dailyReports || [];
+  brandOrders = data.brandOrders || [];
   if (!data.users || data.users.length === 0) {
     users = [{ username: 'admin', password: '8888', role: 'super' }];
   }
@@ -992,7 +994,7 @@ function applyData(data) {
 function collectData() {
   return {
     items, history, persons, confirmers, pendingOuts, nextId, nextOutId, users,
-    productionPlans, dailyReports,
+    productionPlans, dailyReports, brandOrders,
     _appVersion: 9
   };
 }
