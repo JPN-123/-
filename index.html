@@ -87,6 +87,30 @@
   .nav-item.inactive:hover { background: transparent; color: #555; }
   .nav-divider { height: 1px; background: #e8e8e8; margin: 12px 16px; }
 
+  /* 子导航 */
+  .nav-group-toggle {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 20px; margin: 2px 8px;
+    border-radius: 8px; cursor: pointer; transition: all 0.2s;
+    text-decoration: none; color: #555; font-size: 14px;
+    user-select: none;
+  }
+  .nav-group-toggle:hover { background: #f0f7ff; color: #1a73e8; }
+  .nav-group-toggle.active { background: #e8f0fe; color: #1a73e8; font-weight: 600; }
+  .nav-group-toggle .icon { font-size: 18px; width: 24px; text-align: center; }
+  .nav-group-toggle .arrow {
+    margin-left: auto; font-size: 10px; transition: transform 0.25s;
+  }
+  .nav-group-toggle.expanded .arrow { transform: rotate(90deg); }
+  .nav-sub {
+    max-height: 0; overflow: hidden; transition: max-height 0.3s ease;
+  }
+  .nav-sub.open { max-height: 300px; }
+  .nav-sub .nav-item {
+    padding: 9px 20px 9px 56px; margin: 1px 8px;
+    font-size: 13px;
+  }
+
   /* 右侧内容区 */
   .main-content {
     margin-left: 220px; margin-top: 56px;
@@ -215,14 +239,25 @@
       <span class="icon">&#128230;</span>
       <span>辅料库存管理</span>
     </a>
-    <a class="nav-item inactive">
-      <span class="icon">&#128295;</span>
-      <span>配件维修换料管理</span>
-    </a>
-    <a class="nav-item" data-module="production" onclick="switchModule('production')">
+    <div class="nav-group-toggle" id="prodGroupToggle" onclick="toggleProdGroup()">
       <span class="icon">&#128200;</span>
       <span>生产计划管理</span>
-    </a>
+      <span class="arrow">&#9654;</span>
+    </div>
+    <div class="nav-sub" id="prodSubNav">
+      <a class="nav-item" data-module="brand-order" onclick="switchModule('brand-order')">
+        <span>BRAND订单管理</span>
+      </a>
+      <a class="nav-item" data-module="repair" onclick="switchModule('repair')">
+        <span>维修换料管理</span>
+      </a>
+      <a class="nav-item" data-module="daily-report" onclick="switchModule('daily-report')">
+        <span>日报数据</span>
+      </a>
+      <a class="nav-item" data-module="production-summary" onclick="switchModule('production-summary')">
+        <span>产量汇总</span>
+      </a>
+    </div>
     <div class="nav-divider"></div>
     <a class="nav-item" id="navUserManage" onclick="openUserManage()" style="display:none">
       <span class="icon">&#128100;</span>
@@ -330,7 +365,10 @@ let gistData = null; // 缓存 Gist 完整数据
 // 模块地址映射
 const modules = {
   inventory: 'inventory.html',
-  production: 'production.html'
+  'brand-order': 'brand-order.html',
+  repair: 'repair.html',
+  'daily-report': 'daily-report.html',
+  'production-summary': 'production-summary.html'
 };
 
 function showToast(msg) {
@@ -465,16 +503,36 @@ document.addEventListener('keydown', function(e) {
 });
 
 // ========== 模块切换 ==========
+function toggleProdGroup() {
+  var toggle = document.getElementById('prodGroupToggle');
+  var sub = document.getElementById('prodSubNav');
+  toggle.classList.toggle('expanded');
+  sub.classList.toggle('open');
+}
+
 function switchModule(name) {
   if (!modules[name]) return;
+  // 如果是生产计划子模块，展开子导航
+  var prodModules = ['brand-order', 'repair', 'daily-report', 'production-summary'];
+  if (prodModules.indexOf(name) !== -1) {
+    document.getElementById('prodGroupToggle').classList.add('expanded');
+    document.getElementById('prodSubNav').classList.add('open');
+  }
   // 更新导航高亮
   document.querySelectorAll('.nav-item[data-module]').forEach(function(item) {
     item.classList.remove('active');
   });
-  const navEl = document.querySelector('[data-module="' + name + '"]');
+  var navEl = document.querySelector('[data-module="' + name + '"]');
   if (navEl) navEl.classList.add('active');
+  // 父级高亮
+  var groupToggle = document.getElementById('prodGroupToggle');
+  if (prodModules.indexOf(name) !== -1) {
+    groupToggle.classList.add('active');
+  } else {
+    groupToggle.classList.remove('active');
+  }
   // 构建 iframe URL（加 v 参数绕过缓存）
-  let url = modules[name] + '?v=20260528h';
+  let url = modules[name] + '?v=20260528i';
   // 透传 token
   if (GITHUB_TOKEN) {
     url += '&token=' + encodeURIComponent(GITHUB_TOKEN);
