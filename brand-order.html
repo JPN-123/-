@@ -226,10 +226,14 @@
       <option value="UV">UV</option>
       <option value="虚拟线">虚拟线</option>
     </select>
-    <select id="filterMesStatus">
-      <option value="">全部入库</option>
-      <option value="已入库">已入库</option>
-      <option value="未入库">未入库</option>
+    <select id="filterOrderStatus">
+      <option value="">全部状态</option>
+      <option value="未备料">未备料</option>
+      <option value="已备料">已备料</option>
+      <option value="首件已好">首件已好</option>
+      <option value="撤单">撤单</option>
+      <option value="排产中">排产中</option>
+      <option value="完工">完工</option>
     </select>
     <input type="text" id="filterSearch" placeholder="批量查询（多关键词用逗号/空格/换行分隔）" style="width:280px">
   </div>
@@ -567,7 +571,7 @@ function updateStats() {
 function renderOrders() {
   var dateFilter = document.getElementById('filterDate').value;
   var lineFilter = document.getElementById('filterStatus').value;
-  var mesFilter = document.getElementById('filterMesStatus').value;
+  var orderStatusFilter = document.getElementById('filterOrderStatus').value;
   var searchRaw = document.getElementById('filterSearch').value.trim().toLowerCase();
   var searchTerms = searchRaw ? searchRaw.split(/[,，\s\n]+/).filter(function(s){ return s.length>0; }) : [];
   var tbody = document.getElementById('orderTableBody');
@@ -577,7 +581,7 @@ function renderOrders() {
   var filtered = brandOrders.slice();
   if (dateFilter) filtered = filtered.filter(function(x) { return x.date === dateFilter; });
   if (lineFilter) filtered = filtered.filter(function(x) { return x.line === lineFilter; });
-  if (mesFilter) filtered = filtered.filter(function(x) { return x.mesStatus === mesFilter; });
+  if (orderStatusFilter) filtered = filtered.filter(function(x) { return x.orderStatus === orderStatusFilter; });
   if (searchTerms.length > 0) {
     filtered = filtered.filter(function(x) {
       return searchTerms.some(function(term) {
@@ -634,7 +638,7 @@ function renderOrders() {
 // ========== 筛选监听 ==========
 document.getElementById('filterDate').addEventListener('change', renderOrders);
 document.getElementById('filterStatus').addEventListener('change', renderOrders);
-document.getElementById('filterMesStatus').addEventListener('change', renderOrders);
+document.getElementById('filterOrderStatus').addEventListener('change', renderOrders);
 document.getElementById('filterSearch').addEventListener('input', renderOrders);
 
 // ========== 订单 CRUD ==========
@@ -899,13 +903,13 @@ function formatRemark(remark) {
 function exportToExcel() {
   var dateFilter = document.getElementById('filterDate').value;
   var lineFilter = document.getElementById('filterStatus').value;
-  var mesFilter = document.getElementById('filterMesStatus').value;
+  var orderStatusFilter = document.getElementById('filterOrderStatus').value;
   var searchRaw = document.getElementById('filterSearch').value.trim().toLowerCase();
   var searchTerms = searchRaw ? searchRaw.split(/[,，\s\n]+/).filter(function(s){ return s.length>0; }) : [];
   var filtered = brandOrders.slice();
   if (dateFilter) filtered = filtered.filter(function(x) { return x.date === dateFilter; });
   if (lineFilter) filtered = filtered.filter(function(x) { return x.line === lineFilter; });
-  if (mesFilter) filtered = filtered.filter(function(x) { return x.mesStatus === mesFilter; });
+  if (orderStatusFilter) filtered = filtered.filter(function(x) { return x.orderStatus === orderStatusFilter; });
   if (searchTerms.length > 0) {
     filtered = filtered.filter(function(x) {
       return searchTerms.some(function(term) {
