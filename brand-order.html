@@ -95,7 +95,11 @@
   .line-tag.a { background: #e8f0fe; color: #1a73e8; }
   .line-tag.vip { background: #fce8e6; color: #c62828; }
   .line-tag.b { background: #e8f5e9; color: #2e7d32; }
-  .line-tag.pack { background: #fff3e0; color: #e65100; }
+  .line-tag.c { background: #e0f7fa; color: #00838f; }
+  .line-tag.d { background: #fff3e0; color: #e65100; }
+  .line-tag.s { background: #f3e5f5; color: #7b1fa2; }
+  .line-tag.y { background: #e8eaf6; color: #283593; }
+  .line-tag.uv { background: #fce4ec; color: #ad1457; }
   .line-tag.other { background: #f5f5f5; color: #666; }
 
   .sync-status {
@@ -212,10 +216,15 @@
     <input type="date" id="filterDate" placeholder="日期">
     <select id="filterStatus">
       <option value="">全部线体</option>
-      <option value="A线">A线</option>
-      <option value="VIP线">VIP线</option>
-      <option value="B线">B线</option>
-      <option value="打包线">打包线</option>
+      <option value="A">A</option>
+      <option value="B">B</option>
+      <option value="C">C</option>
+      <option value="D">D</option>
+      <option value="VIP">VIP</option>
+      <option value="S">S</option>
+      <option value="Y">Y</option>
+      <option value="UV">UV</option>
+      <option value="虚拟线">虚拟线</option>
     </select>
     <select id="filterMesStatus">
       <option value="">全部入库</option>
@@ -594,7 +603,7 @@ function renderOrders() {
   emptyState.style.display = 'none';
   var html = '';
   filtered.forEach(function(o) {
-    var lineCls = { 'A线': 'a', 'VIP线': 'vip', 'B线': 'b', '打包线': 'pack' }[o.line] || 'other';
+    var lineCls = { 'A': 'a', 'VIP': 'vip', 'B': 'b', 'C': 'c', 'D': 'd', 'S': 's', 'Y': 'y', 'UV': 'uv', '虚拟线': 'other' }[o.line] || 'other';
     html += '<tr>' +
       '<td class="hide-col">' + (o.date || '-') + '</td>' +
       '<td>' + (o.orderNo ? escHtml(o.orderNo) : '-') + '</td>' +
@@ -667,11 +676,15 @@ function addOrderRow(data) {
     '<td><input type="text" class="o-warehouse" placeholder="仓库" value="' + escHtml(d.warehouse || '') + '"></td>' +
     '<td><input type="date" class="o-mesDate" value="' + (d.mesDate || '') + '"></td>' +
     '<td><select class="o-line">' +
-      '<option value="A线"' + (d.line==='A线'?' selected':'') + '>A线</option>' +
-      '<option value="VIP线"' + (d.line==='VIP线'?' selected':'') + '>VIP线</option>' +
-      '<option value="B线"' + (d.line==='B线'?' selected':'') + '>B线</option>' +
-      '<option value="打包线"' + (d.line==='打包线'?' selected':'') + '>打包线</option>' +
-      '<option value="其他"' + (d.line==='其他'?' selected':'') + '>其他</option>' +
+      '<option value="A"' + (d.line==='A'?' selected':'') + '>A</option>' +
+      '<option value="B"' + (d.line==='B'?' selected':'') + '>B</option>' +
+      '<option value="C"' + (d.line==='C'?' selected':'') + '>C</option>' +
+      '<option value="D"' + (d.line==='D'?' selected':'') + '>D</option>' +
+      '<option value="VIP"' + (d.line==='VIP'?' selected':'') + '>VIP</option>' +
+      '<option value="S"' + (d.line==='S'?' selected':'') + '>S</option>' +
+      '<option value="Y"' + (d.line==='Y'?' selected':'') + '>Y</option>' +
+      '<option value="UV"' + (d.line==='UV'?' selected':'') + '>UV</option>' +
+      '<option value="虚拟线"' + (d.line==='虚拟线'?' selected':'') + '>虚拟线</option>' +
     '</select></td>' +
     '<td><input type="date" class="o-dispatchTime" value="' + (d.dispatchTime || '') + '"></td>' +
     '<td><input type="text" class="o-dispatchNo" placeholder="波次号" value="' + escHtml(d.dispatchNo || '') + '"></td>' +
@@ -706,11 +719,15 @@ function fillOrderRow(tbody, o, idx) {
     '<td><input type="text" class="o-warehouse" placeholder="仓库" value="' + escHtml(o.warehouse || '') + '"></td>' +
     '<td><input type="date" class="o-mesDate" value="' + (o.mesDate || '') + '"></td>' +
     '<td><select class="o-line">' +
-      '<option value="A线"' + (o.line==='A线'?' selected':'') + '>A线</option>' +
-      '<option value="VIP线"' + (o.line==='VIP线'?' selected':'') + '>VIP线</option>' +
-      '<option value="B线"' + (o.line==='B线'?' selected':'') + '>B线</option>' +
-      '<option value="打包线"' + (o.line==='打包线'?' selected':'') + '>打包线</option>' +
-      '<option value="其他"' + (o.line==='其他'?' selected':'') + '>其他</option>' +
+      '<option value="A"' + (o.line==='A'?' selected':'') + '>A</option>' +
+      '<option value="B"' + (o.line==='B'?' selected':'') + '>B</option>' +
+      '<option value="C"' + (o.line==='C'?' selected':'') + '>C</option>' +
+      '<option value="D"' + (o.line==='D'?' selected':'') + '>D</option>' +
+      '<option value="VIP"' + (o.line==='VIP'?' selected':'') + '>VIP</option>' +
+      '<option value="S"' + (o.line==='S'?' selected':'') + '>S</option>' +
+      '<option value="Y"' + (o.line==='Y'?' selected':'') + '>Y</option>' +
+      '<option value="UV"' + (o.line==='UV'?' selected':'') + '>UV</option>' +
+      '<option value="虚拟线"' + (o.line==='虚拟线'?' selected':'') + '>虚拟线</option>' +
     '</select></td>' +
     '<td><input type="date" class="o-dispatchTime" value="' + (o.dispatchTime || '') + '"></td>' +
     '<td><input type="text" class="o-dispatchNo" placeholder="波次号" value="' + escHtml(o.dispatchNo || '') + '"></td>' +
@@ -788,7 +805,7 @@ function parseImportData() {
     d.remark = parts[6] || '';
     d.warehouse = parts[7] || '';
     d.mesDate = smartDate(parts[8]);
-    d.line = ({'A':'A线','B':'B线','V':'VIP线','Y':'A线','VIP':'VIP线','Pack':'打包线','打包':'打包线'})[parts[9]] || parts[9] || '';
+    d.line = ({'A':'A','B':'B','C':'C','D':'D','V':'VIP','Y':'Y','S':'S','UV':'UV','VIP':'VIP'})[parts[9]] || parts[9] || '';
     d.dispatchTime = smartDate(parts[10]);
     d.dispatchNo = parts[11] || '';
     d.orderStatus = parts[12] || '';
