@@ -279,17 +279,6 @@
   .plan-section.active { display: block; }
   .inv-section { display: none; }
   .inv-section.active { display: block; }
-  .plan-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; padding: 16px 24px; }
-  .plan-card { background: #fff; border-radius: 10px; padding: 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); border-left: 4px solid #1a73e8; }
-  .plan-card.vip { border-left-color: #c62828; }
-  .plan-card.b { border-left-color: #2e7d32; }
-  .plan-card.pack { border-left-color: #e65100; }
-  .plan-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-  .plan-card-title { font-size: 15px; font-weight: 600; }
-  .plan-card-body { font-size: 13px; color: #555; line-height: 1.8; }
-  .plan-card-body .label { color: #999; margin-right: 4px; }
-  .plan-card-actions { display: flex; gap: 6px; margin-top: 12px; justify-content: flex-end; }
-  .plan-progress { margin-top: 8px; }
   .progress-bar { height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; }
   .progress-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
   .progress-fill.ok { background: #34a853; }
@@ -420,7 +409,30 @@
   </div>
 </div>
 
-<div class="plan-cards plan-section" id="planCards"></div>
+<div class="table-container plan-section" id="planTableContainer">
+  <table id="planTable">
+    <thead>
+      <tr>
+        <th>日期</th>
+        <th>线体</th>
+        <th>计划单号</th>
+        <th>料号</th>
+        <th>品名</th>
+        <th>数量</th>
+        <th>实际</th>
+        <th>达成率</th>
+        <th>订单状态</th>
+        <th>备注</th>
+        <th style="width:90px">操作</th>
+      </tr>
+    </thead>
+    <tbody id="planListBody"></tbody>
+  </table>
+  <div id="planEmptyState" class="empty" style="display:none">
+    <div class="icon">&#128203;</div>
+    <p>暂无生产计划，点击「+ 新增计划」开始</p>
+  </div>
+</div>
 
 <div class="report-section plan-section" id="reportSection" style="display:none">
   <h3>日报汇总</h3>
@@ -1899,7 +1911,9 @@ async function deletePlan(id) {
   function renderPlans() {
     var dateFilter = document.getElementById('planDateFilter').value;
     var lineFilter = document.getElementById('planLineFilter').value;
-    var container = document.getElementById('planCards');
+    var tbody = document.getElementById('planListBody');
+    var emptyState = document.getElementById('planEmptyState');
+    var table = document.getElementById('planTable');
     var reportSection = document.getElementById('reportSection');
     var filtered = productionPlans.slice();
     if (dateFilter) filtered = filtered.filter(function(x) { return x.date === dateFilter; });
@@ -1907,39 +1921,51 @@ async function deletePlan(id) {
     filtered.sort(function(a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
 
     if (filtered.length === 0) {
-      container.innerHTML = '<div class="empty" style="grid-column:1/-1"><div class="icon">📋</div><p>暂无生产计划，点击「+ 新增计划」开始</p></div>';
+      tbody.innerHTML = '';
+      table.style.display = 'none';
+      emptyState.style.display = '';
       reportSection.style.display = 'none';
       updatePlanStats(dateFilter);
       return;
     }
 
+    table.style.display = '';
+    emptyState.style.display = 'none';
     var html = '';
     filtered.forEach(function(p) {
       var reps = dailyReports.filter(function(r) { return r.date === p.date && r.line === p.line; });
       var actualTotal = reps.reduce(function(s, r) { return s + (r.actual || 0); }, 0);
-      var targetQty = p.qty || p.target || 0;  // 兼容旧数据
+      var targetQty = p.qty || p.target || 0;
       var rate = targetQty > 0 ? Math.round(actualTotal / targetQty * 100) : 0;
-      var cls = { 'A线': '', 'VIP线': 'vip', 'B线': 'b', '打包线': 'pack' }[p.line] || '';
+      var lineCls = { 'A线': 'a', 'VIP线': 'vip', 'B线': 'b', '打包线': 'pack' }[p.line] || 'other';
       var pCls = rate >= 100 ? 'ok' : rate >= 80 ? 'low' : 'danger';
-      html += '<div class="plan-card ' + cls + '">' +
-        '<div class="plan-card-header"><span class="plan-card-title">' + p.date + ' · ' + p.line + '</span>' +
-        '<span class="badge-' + (rate >= 100 ? 'ok' : rate > 0 ? 'low' : 'pending') + '">' + rate + '%</span></div>' +
-        '<div class="plan-card-body">' +
-        (p.planNo ? '<div><span class="label">单号：</span>' + escHtml(p.planNo) + '</div>' : '') +
-        (p.materialNo ? '<div><span class="label">料号：</span>' + escHtml(p.materialNo) + '</div>' : '') +
-        (p.productName ? '<div><span class="label">品名：</span>' + escHtml(p.productName) + '</div>' : '') +
-        '<div><span class="label">数量：</span>' + targetQty + (p.category ? ' (' + escHtml(p.category) + ')' : '') + '</div>' +
-        '<div><span class="label">实际：</span>' + actualTotal + ' 台</div>' +
-        (p.remark ? '<div><span class="label">备注：</span>' + escHtml(p.remark) + '</div>' : '') +
-        '</div><div class="plan-progress">' +
-        '<div class="progress-bar"><div class="progress-fill ' + pCls + '" style="width:' + Math.min(rate, 100) + '%"></div></div>' +
-        '<div class="progress-text">' + actualTotal + ' / ' + targetQty + ' 台</div></div>' +
-        '<div class="plan-card-actions">' +
-        '<button class="btn-outline" onclick="openPlanModal(' + p.id + ')" style="padding:4px 10px;font-size:12px">编辑</button>' +
-        '<button class="btn-outline" onclick="deletePlan(' + p.id + ')" style="padding:4px 10px;font-size:12px;color:#ea4335">删除</button>' +
-        '</div></div>';
+      html += '<tr>' +
+        '<td>' + p.date + '</td>' +
+        '<td><span class="line-tag ' + lineCls + '">' + p.line + '</span></td>' +
+        '<td>' + (p.planNo ? escHtml(p.planNo) : '-') + '</td>' +
+        '<td>' + (p.materialNo ? escHtml(p.materialNo) : '-') + '</td>' +
+        '<td>' + (p.productName ? escHtml(p.productName) : '-') + '</td>' +
+        '<td style="text-align:right;font-weight:600">' + targetQty + '</td>' +
+        '<td style="text-align:right">' + actualTotal + ' 台</td>' +
+        '<td>' +
+          '<div style="display:flex;align-items:center;gap:8px">' +
+            '<div class="progress-bar" style="width:60px;height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden">' +
+              '<div class="progress-fill ' + pCls + '" style="width:' + Math.min(rate, 100) + '%;height:100%;border-radius:3px"></div>' +
+            '</div>' +
+            '<span style="font-size:12px;color:#666">' + rate + '%</span>' +
+          '</div>' +
+        '</td>' +
+        '<td>' + (p.moaStatus ? escHtml(p.moaStatus) : '-') + '</td>' +
+        '<td>' + (p.remark ? escHtml(p.remark) : '-') + '</td>' +
+        '<td>' +
+          '<div class="action-btns">' +
+            '<button class="btn-outline" onclick="openPlanModal(' + p.id + ')" style="padding:3px 8px;font-size:11px">编辑</button>' +
+            '<button class="btn-outline" onclick="deletePlan(' + p.id + ')" style="padding:3px 8px;font-size:11px;color:#ea4335">删除</button>' +
+          '</div>' +
+        '</td>' +
+      '</tr>';
     });
-    container.innerHTML = html;
+    tbody.innerHTML = html;
     if (dateFilter) { renderReportSummary(dateFilter, lineFilter); reportSection.style.display = ''; }
     else { reportSection.style.display = 'none'; }
     updatePlanStats(dateFilter);
