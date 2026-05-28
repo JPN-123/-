@@ -88,6 +88,13 @@
   .bios-warning { background: #fce8e6 !important; color: #c5221f !important; font-weight: 600; padding: 2px 6px; border-radius: 4px; border: 1px solid #f5a8a0; }
   .bios-warning::before { content: "⚠️ "; }
 
+  .row-warn { background: #fff8e1 !important; }
+  .row-warn:hover { background: #fff3cd !important; }
+  .row-warn td:first-child { border-left: 3px solid #f9ab00; }
+  .row-danger { background: #fce8e6 !important; }
+  .row-danger:hover { background: #fdd !important; }
+  .row-danger td:first-child { border-left: 3px solid #ea4335; }
+
   .action-btns { display: flex; gap: 4px; }
   .action-btns button { padding: 3px 8px; font-size: 11px; }
 
@@ -655,6 +662,18 @@ function updateStats() {
 }
 
 // ========== 订单渲染 ==========
+function getOrderTimeoutClass(o) {
+  if (o.orderStatus === '完工' || o.orderStatus === '撤单') return '';
+  var t = o.orderTime;
+  if (!t) return '';
+  // 支持多种日期格式解析
+  var d = new Date(t.replace(/\//g, '-'));
+  if (isNaN(d.getTime())) return '';
+  var hours = (Date.now() - d.getTime()) / 3600000;
+  if (hours >= 72) return 'row-danger';
+  if (hours >= 36) return 'row-warn';
+  return '';
+}
 function renderOrders() {
   var dateFilter = document.getElementById('filterDate').value;
   var lineFilter = document.getElementById('filterStatus').value;
@@ -695,7 +714,8 @@ function renderOrders() {
   var html = '';
   filtered.forEach(function(o) {
     var lineCls = { 'A': 'a', 'VIP': 'vip', 'B': 'b', 'C': 'c', 'D': 'd', 'S': 's', 'Y': 'y', 'UV': 'uv', '虚拟线': 'other' }[o.line] || 'other';
-    html += '<tr>' +
+    var warnCls = getOrderTimeoutClass(o);
+    html += '<tr' + (warnCls ? ' class="' + warnCls + '"' : '') + '>' +
       '<td class="hide-col">' + (o.date || '-') + '</td>' +
       '<td>' + (o.orderNo ? escHtml(o.orderNo) : '-') + '</td>' +
       '<td>' + (o.materialNo ? escHtml(o.materialNo) : '-') + '</td>' +
