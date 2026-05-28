@@ -207,10 +207,16 @@
   <div class="toolbar-left">
     <input type="date" id="filterDate" placeholder="日期">
     <select id="filterStatus">
-      <option value="">全部状态</option>
-      <option value="待处理">待处理</option>
-      <option value="进行中">进行中</option>
-      <option value="已完成">已完成</option>
+      <option value="">全部线体</option>
+      <option value="A线">A线</option>
+      <option value="VIP线">VIP线</option>
+      <option value="B线">B线</option>
+      <option value="打包线">打包线</option>
+    </select>
+    <select id="filterMesStatus">
+      <option value="">全部入库</option>
+      <option value="已入库">已入库</option>
+      <option value="未入库">未入库</option>
     </select>
     <input type="text" id="filterSearch" placeholder="搜索订单号/料号/品名" style="width:180px">
   </div>
@@ -225,15 +231,16 @@
     <thead>
       <tr>
         <th>日期</th>
-        <th>订单号</th>
+        <th>订单单号</th>
         <th>料号</th>
         <th>品名</th>
         <th>数量</th>
-        <th>状态</th>
-        <th>完工入仓库</th>
-        <th>下发波次号</th>
+        <th>仓库</th>
+        <th>线体</th>
+        <th>波次号</th>
         <th>订单状态</th>
-        <th>上线时间</th>
+        <th>排产日期</th>
+        <th>完工数量</th>
         <th>备注</th>
         <th style="width:90px">操作</th>
       </tr>
@@ -261,7 +268,7 @@
       </div>
       <div id="importPanel" style="display:none;margin-bottom:10px">
         <textarea class="import-area" id="importText" placeholder="从Excel复制数据，粘贴到这里，然后点击解析导入...
-格式：日期  订单号  料号  品名  数量  状态  完工入仓库  下发波次号  订单批次  资产归属  订单状态  上线时间  备注"></textarea>
+格式：日期  订单单号  料号  品名  数量  开单时间  备注  仓库  MES排产日期  线体  下发时间  波次号  订单状态  排产日期  MES入库状况  排产备注  完工数量"></textarea>
         <div style="display:flex;gap:8px">
           <button class="btn-primary" onclick="parseImportData()">解析导入</button>
           <button class="btn-outline" onclick="document.getElementById('importPanel').style.display='none'">取消</button>
@@ -273,22 +280,22 @@
             <tr>
               <th style="width:30px">#</th>
               <th>日期*</th>
-              <th>订单号</th>
+              <th>订单单号</th>
               <th>料号</th>
               <th>品名</th>
               <th style="width:60px">数量</th>
-              <th>完工入仓库</th>
+              <th>开单时间</th>
               <th>备注</th>
-              <th>状态*</th>
-              <th>类别</th>
-              <th>下达时间</th>
-              <th>批次号</th>
-              <th>下发波次号</th>
-              <th>订单批次</th>
-              <th>资产归属</th>
+              <th>仓库</th>
+              <th>MES排产日期</th>
+              <th>线体*</th>
+              <th>下发时间</th>
+              <th>波次号</th>
               <th>订单状态</th>
-              <th>上线时间</th>
+              <th>排产日期</th>
+              <th>MES入库状况</th>
               <th>排产备注</th>
+              <th style="width:60px">完工数量</th>
               <th style="width:30px">删</th>
             </tr>
           </thead>
@@ -525,19 +532,22 @@ function showApp() {
 
 function updateStats() {
   var total = brandOrders.length;
-  var pending = brandOrders.filter(function(o) { return o.status === '待处理'; }).length;
-  var processing = brandOrders.filter(function(o) { return o.status === '进行中'; }).length;
-  var completed = brandOrders.filter(function(o) { return o.status === '已完成'; }).length;
+  var totalQty = brandOrders.reduce(function(s, o) { return s + (o.qty || 0); }, 0);
+  var completed = brandOrders.reduce(function(s, o) { return s + (o.completedQty || 0); }, 0);
   document.getElementById('statTotal').textContent = total;
-  document.getElementById('statPending').textContent = pending;
-  document.getElementById('statProcessing').textContent = processing;
-  document.getElementById('statCompleted').textContent = completed;
+  document.getElementById('statPending').textContent = totalQty;
+  document.getElementById('statProcessing').textContent = completed;
+  document.getElementById('statCompleted').textContent = totalQty > 0 ? Math.round(completed / totalQty * 100) + '%' : '0%';
+  document.querySelector('#headerStats .stat-item:nth-child(2) .label').textContent = '总数量';
+  document.querySelector('#headerStats .stat-item:nth-child(3) .label').textContent = '完工数量';
+  document.querySelector('#headerStats .stat-item:nth-child(4) .label').textContent = '完成率';
 }
 
 // ========== 订单渲染 ==========
 function renderOrders() {
   var dateFilter = document.getElementById('filterDate').value;
-  var statusFilter = document.getElementById('filterStatus').value;
+  var lineFilter = document.getElementById('filterStatus').value;
+  var mesFilter = document.getElementById('filterMesStatus').value;
   var searchFilter = document.getElementById('filterSearch').value.trim().toLowerCase();
   var tbody = document.getElementById('orderTableBody');
   var emptyState = document.getElementById('emptyState');
@@ -545,12 +555,14 @@ function renderOrders() {
 
   var filtered = brandOrders.slice();
   if (dateFilter) filtered = filtered.filter(function(x) { return x.date === dateFilter; });
-  if (statusFilter) filtered = filtered.filter(function(x) { return x.status === statusFilter; });
+  if (lineFilter) filtered = filtered.filter(function(x) { return x.line === lineFilter; });
+  if (mesFilter) filtered = filtered.filter(function(x) { return x.mesStatus === mesFilter; });
   if (searchFilter) {
     filtered = filtered.filter(function(x) {
       return (x.orderNo && x.orderNo.toLowerCase().indexOf(searchFilter) !== -1) ||
              (x.materialNo && x.materialNo.toLowerCase().indexOf(searchFilter) !== -1) ||
-             (x.productName && x.productName.toLowerCase().indexOf(searchFilter) !== -1);
+             (x.productName && x.productName.toLowerCase().indexOf(searchFilter) !== -1) ||
+             (x.orderStatus && x.orderStatus.toLowerCase().indexOf(searchFilter) !== -1);
     });
   }
   filtered.sort(function(a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
@@ -567,18 +579,19 @@ function renderOrders() {
   emptyState.style.display = 'none';
   var html = '';
   filtered.forEach(function(o) {
-    var statusCls = o.status === '已完成' ? 'badge-ok' : o.status === '进行中' ? 'badge-low' : 'badge-pending';
+    var lineCls = { 'A线': 'a', 'VIP线': 'vip', 'B线': 'b', '打包线': 'pack' }[o.line] || 'other';
     html += '<tr>' +
       '<td>' + (o.date || '-') + '</td>' +
       '<td>' + (o.orderNo ? escHtml(o.orderNo) : '-') + '</td>' +
       '<td>' + (o.materialNo ? escHtml(o.materialNo) : '-') + '</td>' +
       '<td>' + (o.productName ? escHtml(o.productName) : '-') + '</td>' +
       '<td style="text-align:right;font-weight:600">' + (o.qty || 0) + '</td>' +
-      '<td><span class="' + statusCls + '">' + (o.status || '待处理') + '</span></td>' +
       '<td>' + (o.warehouse ? escHtml(o.warehouse) : '-') + '</td>' +
+      '<td><span class="line-tag ' + lineCls + '">' + (o.line || '-') + '</span></td>' +
       '<td>' + (o.dispatchNo ? escHtml(o.dispatchNo) : '-') + '</td>' +
-      '<td>' + (o.moaStatus ? escHtml(o.moaStatus) : '-') + '</td>' +
-      '<td>' + (o.onlineTime || '-') + '</td>' +
+      '<td>' + (o.orderStatus ? escHtml(o.orderStatus) : '-') + '</td>' +
+      '<td>' + (o.scheduleDate || '-') + '</td>' +
+      '<td style="text-align:right;font-weight:600;color:#2e7d32">' + (o.completedQty || 0) + '</td>' +
       '<td>' + (o.remark ? escHtml(o.remark) : '-') + '</td>' +
       '<td>' +
         '<div class="action-btns">' +
@@ -595,6 +608,7 @@ function renderOrders() {
 // ========== 筛选监听 ==========
 document.getElementById('filterDate').addEventListener('change', renderOrders);
 document.getElementById('filterStatus').addEventListener('change', renderOrders);
+document.getElementById('filterMesStatus').addEventListener('change', renderOrders);
 document.getElementById('filterSearch').addEventListener('input', renderOrders);
 
 // ========== 订单 CRUD ==========
@@ -627,26 +641,28 @@ function addOrderRow(data) {
   row.innerHTML =
     '<td style="text-align:center;color:#999">' + idx + '</td>' +
     '<td><input type="date" class="o-date" value="' + (d.date || today()) + '"></td>' +
-    '<td><input type="text" class="o-orderNo" placeholder="订单号" value="' + escHtml(d.orderNo || '') + '"></td>' +
+    '<td><input type="text" class="o-orderNo" placeholder="订单单号" value="' + escHtml(d.orderNo || '') + '"></td>' +
     '<td><input type="text" class="o-materialNo" placeholder="料号" value="' + escHtml(d.materialNo || '') + '"></td>' +
     '<td><input type="text" class="o-productName" placeholder="品名" value="' + escHtml(d.productName || '') + '"></td>' +
     '<td><input type="number" class="o-qty" placeholder="0" value="' + (d.qty || '') + '"></td>' +
-    '<td><input type="date" class="o-finishTime" value="' + (d.finishTime || '') + '"></td>' +
+    '<td><input type="date" class="o-orderTime" value="' + (d.orderTime || '') + '"></td>' +
     '<td><input type="text" class="o-remark" placeholder="备注" value="' + escHtml(d.remark || '') + '"></td>' +
-    '<td><select class="o-status">' +
-      '<option value="待处理"' + (d.status==='待处理'?' selected':'') + '>待处理</option>' +
-      '<option value="进行中"' + (d.status==='进行中'?' selected':'') + '>进行中</option>' +
-      '<option value="已完成"' + (d.status==='已完成'?' selected':'') + '>已完成</option>' +
+    '<td><input type="text" class="o-warehouse" placeholder="仓库" value="' + escHtml(d.warehouse || '') + '"></td>' +
+    '<td><input type="date" class="o-mesDate" value="' + (d.mesDate || '') + '"></td>' +
+    '<td><select class="o-line">' +
+      '<option value="A线"' + (d.line==='A线'?' selected':'') + '>A线</option>' +
+      '<option value="VIP线"' + (d.line==='VIP线'?' selected':'') + '>VIP线</option>' +
+      '<option value="B线"' + (d.line==='B线'?' selected':'') + '>B线</option>' +
+      '<option value="打包线"' + (d.line==='打包线'?' selected':'') + '>打包线</option>' +
+      '<option value="其他"' + (d.line==='其他'?' selected':'') + '>其他</option>' +
     '</select></td>' +
-    '<td><input type="text" class="o-category" placeholder="类别" value="' + escHtml(d.category || '') + '"></td>' +
-    '<td><input type="date" class="o-issueTime" value="' + (d.issueTime || '') + '"></td>' +
-    '<td><input type="text" class="o-batchNo" placeholder="批次号" value="' + escHtml(d.batchNo || '') + '"></td>' +
+    '<td><input type="date" class="o-dispatchTime" value="' + (d.dispatchTime || '') + '"></td>' +
     '<td><input type="text" class="o-dispatchNo" placeholder="波次号" value="' + escHtml(d.dispatchNo || '') + '"></td>' +
-    '<td><input type="text" class="o-orderBatch" placeholder="订单批次" value="' + escHtml(d.orderBatch || '') + '"></td>' +
-    '<td><input type="text" class="o-assetBelong" placeholder="归属" value="' + escHtml(d.assetBelong || '') + '"></td>' +
-    '<td><input type="text" class="o-moaStatus" placeholder="状态" value="' + escHtml(d.moaStatus || '') + '"></td>' +
-    '<td><input type="date" class="o-onlineTime" value="' + (d.onlineTime || '') + '"></td>' +
-    '<td><input type="text" class="o-outputRemark" placeholder="排产备注" value="' + escHtml(d.outputRemark || '') + '"></td>' +
+    '<td><input type="text" class="o-orderStatus" placeholder="订单状态" value="' + escHtml(d.orderStatus || '') + '"></td>' +
+    '<td><input type="date" class="o-scheduleDate" value="' + (d.scheduleDate || '') + '"></td>' +
+    '<td><input type="text" class="o-mesStatus" placeholder="入库状况" value="' + escHtml(d.mesStatus || '') + '"></td>' +
+    '<td><input type="text" class="o-planRemark" placeholder="排产备注" value="' + escHtml(d.planRemark || '') + '"></td>' +
+    '<td><input type="number" class="o-completedQty" placeholder="0" value="' + (d.completedQty || '') + '"></td>' +
     '<td style="text-align:center"><span class="del-row" onclick="this.closest(\'tr\').remove();reindexOrderRows()">&times;</span></td>';
   tbody.appendChild(row);
 }
@@ -656,26 +672,28 @@ function fillOrderRow(tbody, o, idx) {
   row.innerHTML =
     '<td style="text-align:center;color:#999">' + idx + '</td>' +
     '<td><input type="date" class="o-date" value="' + (o.date || '') + '"></td>' +
-    '<td><input type="text" class="o-orderNo" placeholder="订单号" value="' + escHtml(o.orderNo || '') + '"></td>' +
+    '<td><input type="text" class="o-orderNo" placeholder="订单单号" value="' + escHtml(o.orderNo || '') + '"></td>' +
     '<td><input type="text" class="o-materialNo" placeholder="料号" value="' + escHtml(o.materialNo || '') + '"></td>' +
     '<td><input type="text" class="o-productName" placeholder="品名" value="' + escHtml(o.productName || '') + '"></td>' +
     '<td><input type="number" class="o-qty" placeholder="0" value="' + (o.qty || '') + '"></td>' +
-    '<td><input type="date" class="o-finishTime" value="' + (o.finishTime || '') + '"></td>' +
+    '<td><input type="date" class="o-orderTime" value="' + (o.orderTime || '') + '"></td>' +
     '<td><input type="text" class="o-remark" placeholder="备注" value="' + escHtml(o.remark || '') + '"></td>' +
-    '<td><select class="o-status">' +
-      '<option value="待处理"' + (o.status==='待处理'?' selected':'') + '>待处理</option>' +
-      '<option value="进行中"' + (o.status==='进行中'?' selected':'') + '>进行中</option>' +
-      '<option value="已完成"' + (o.status==='已完成'?' selected':'') + '>已完成</option>' +
+    '<td><input type="text" class="o-warehouse" placeholder="仓库" value="' + escHtml(o.warehouse || '') + '"></td>' +
+    '<td><input type="date" class="o-mesDate" value="' + (o.mesDate || '') + '"></td>' +
+    '<td><select class="o-line">' +
+      '<option value="A线"' + (o.line==='A线'?' selected':'') + '>A线</option>' +
+      '<option value="VIP线"' + (o.line==='VIP线'?' selected':'') + '>VIP线</option>' +
+      '<option value="B线"' + (o.line==='B线'?' selected':'') + '>B线</option>' +
+      '<option value="打包线"' + (o.line==='打包线'?' selected':'') + '>打包线</option>' +
+      '<option value="其他"' + (o.line==='其他'?' selected':'') + '>其他</option>' +
     '</select></td>' +
-    '<td><input type="text" class="o-category" placeholder="类别" value="' + escHtml(o.category || '') + '"></td>' +
-    '<td><input type="date" class="o-issueTime" value="' + (o.issueTime || '') + '"></td>' +
-    '<td><input type="text" class="o-batchNo" placeholder="批次号" value="' + escHtml(o.batchNo || '') + '"></td>' +
+    '<td><input type="date" class="o-dispatchTime" value="' + (o.dispatchTime || '') + '"></td>' +
     '<td><input type="text" class="o-dispatchNo" placeholder="波次号" value="' + escHtml(o.dispatchNo || '') + '"></td>' +
-    '<td><input type="text" class="o-orderBatch" placeholder="订单批次" value="' + escHtml(o.orderBatch || '') + '"></td>' +
-    '<td><input type="text" class="o-assetBelong" placeholder="归属" value="' + escHtml(o.assetBelong || '') + '"></td>' +
-    '<td><input type="text" class="o-moaStatus" placeholder="状态" value="' + escHtml(o.moaStatus || '') + '"></td>' +
-    '<td><input type="date" class="o-onlineTime" value="' + (o.onlineTime || '') + '"></td>' +
-    '<td><input type="text" class="o-outputRemark" placeholder="排产备注" value="' + escHtml(o.outputRemark || '') + '"></td>' +
+    '<td><input type="text" class="o-orderStatus" placeholder="订单状态" value="' + escHtml(o.orderStatus || '') + '"></td>' +
+    '<td><input type="date" class="o-scheduleDate" value="' + (o.scheduleDate || '') + '"></td>' +
+    '<td><input type="text" class="o-mesStatus" placeholder="入库状况" value="' + escHtml(o.mesStatus || '') + '"></td>' +
+    '<td><input type="text" class="o-planRemark" placeholder="排产备注" value="' + escHtml(o.planRemark || '') + '"></td>' +
+    '<td><input type="number" class="o-completedQty" placeholder="0" value="' + (o.completedQty || '') + '"></td>' +
     '<td style="text-align:center"><span class="del-row" onclick="this.closest(\'tr\').remove();reindexOrderRows()">&times;</span></td>';
   tbody.appendChild(row);
 }
@@ -709,18 +727,18 @@ function parseImportData() {
     d.materialNo = parts[2] || '';
     d.productName = parts[3] || '';
     d.qty = parseInt(parts[4]) || 0;
-    d.finishTime = parts[5] ? parts[5].replace(/\//g, '-') : '';
+    d.orderTime = parts[5] ? parts[5].replace(/\//g, '-') : '';
     d.remark = parts[6] || '';
-    d.status = parts[7] || '待处理';
-    d.category = parts[8] || '';
-    d.issueTime = parts[9] ? parts[9].replace(/\//g, '-') : '';
-    d.batchNo = parts[10] || '';
+    d.warehouse = parts[7] || '';
+    d.mesDate = parts[8] ? parts[8].replace(/\//g, '-') : '';
+    d.line = parts[9] || '';
+    d.dispatchTime = parts[10] ? parts[10].replace(/\//g, '-') : '';
     d.dispatchNo = parts[11] || '';
-    d.orderBatch = parts[12] || '';
-    d.assetBelong = parts[13] || '';
-    d.moaStatus = parts[14] || '';
-    d.onlineTime = parts[15] ? parts[15].replace(/\//g, '-') : '';
-    d.outputRemark = parts[16] || '';
+    d.orderStatus = parts[12] || '';
+    d.scheduleDate = parts[13] ? parts[13].replace(/\//g, '-') : '';
+    d.mesStatus = parts[14] || '';
+    d.planRemark = parts[15] || '';
+    d.completedQty = parseInt(parts[16]) || 0;
     addOrderRow(d);
     count++;
   });
@@ -740,18 +758,18 @@ function submitOrder() {
     o.materialNo = row.querySelector('.o-materialNo').value.trim();
     o.productName = row.querySelector('.o-productName').value.trim();
     o.qty = parseInt(row.querySelector('.o-qty').value) || 0;
-    o.finishTime = row.querySelector('.o-finishTime').value;
+    o.orderTime = row.querySelector('.o-orderTime').value;
     o.remark = row.querySelector('.o-remark').value.trim();
-    o.status = row.querySelector('.o-status').value;
-    o.category = row.querySelector('.o-category').value.trim();
-    o.issueTime = row.querySelector('.o-issueTime').value;
-    o.batchNo = row.querySelector('.o-batchNo').value.trim();
+    o.warehouse = row.querySelector('.o-warehouse').value.trim();
+    o.mesDate = row.querySelector('.o-mesDate').value;
+    o.line = row.querySelector('.o-line').value;
+    o.dispatchTime = row.querySelector('.o-dispatchTime').value;
     o.dispatchNo = row.querySelector('.o-dispatchNo').value.trim();
-    o.orderBatch = row.querySelector('.o-orderBatch').value.trim();
-    o.assetBelong = row.querySelector('.o-assetBelong').value.trim();
-    o.moaStatus = row.querySelector('.o-moaStatus').value.trim();
-    o.onlineTime = row.querySelector('.o-onlineTime').value;
-    o.outputRemark = row.querySelector('.o-outputRemark').value.trim();
+    o.orderStatus = row.querySelector('.o-orderStatus').value.trim();
+    o.scheduleDate = row.querySelector('.o-scheduleDate').value;
+    o.mesStatus = row.querySelector('.o-mesStatus').value.trim();
+    o.planRemark = row.querySelector('.o-planRemark').value.trim();
+    o.completedQty = parseInt(row.querySelector('.o-completedQty').value) || 0;
     o.createTime = o.createTime || new Date().toISOString();
 
     if (editId) {
