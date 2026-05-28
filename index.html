@@ -532,7 +532,7 @@ function switchModule(name) {
     groupToggle.classList.remove('active');
   }
   // 构建 iframe URL（加 v 参数绕过缓存）
-  let url = modules[name] + '?v=20260529e';
+  let url = modules[name] + '?v=20260529f';
   // 透传 token
   if (GITHUB_TOKEN) {
     url += '&token=' + encodeURIComponent(GITHUB_TOKEN);
