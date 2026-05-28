@@ -1336,14 +1336,18 @@ window.addEventListener('message', function(e) {
 
 async function runInboundMigration() {
   try {
-    var res = await fetch('inbound_migration.json');
-    if (!res.ok) return;
+    console.log('[Migration] Starting inbound migration...');
+    var res = await fetch('inbound_migration.json?v=1');
+    console.log('[Migration] fetch status:', res.status);
+    if (!res.ok) { console.warn('[Migration] JSON not found, status', res.status); return; }
     var migData = await res.json();
+    console.log('[Migration] Loaded records:', migData.length);
     if (!Array.isArray(migData) || migData.length === 0) return;
     // 合并
     inboundRecords = migData;
     // 更新 brandOrders 的完工数量
     var updated = 0;
+    var sampleMatch = '';
     brandOrders.forEach(function(order) {
       var totalInbound = 0;
       migData.forEach(function(rec) {
@@ -1355,13 +1359,19 @@ async function runInboundMigration() {
         order.completedQty = totalInbound;
         order.mesStatus = totalInbound >= (order.qty || 0) ? '已入库' : '未入库';
         updated++;
+        if (!sampleMatch) sampleMatch = order.orderNo;
       }
     });
+    console.log('[Migration] Matched orders:', updated, 'Sample:', sampleMatch);
     // 保存到Gist
     await save();
+    // 刷新显示
+    renderOrders();
+    updateStats();
     showToast('已导入 ' + migData.length + ' 条历史入库流水，更新 ' + updated + ' 条订单');
+    console.log('[Migration] Done.');
   } catch (e) {
-    console.warn('Inbound migration skipped:', e);
+    console.warn('[Migration] Error:', e);
   }
 }
 </script>
