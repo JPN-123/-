@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>产量汇总</title>
+<style>
+  * { margin:0; padding:0; box-sizing: border-box; }
+  body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: #f0f2f5; color: #333; }
+  .header {
+    background: linear-gradient(135deg, #1a73e8, #0d47a1);
+    color: #fff; padding: 20px 24px;
+  }
+  .header h1 { font-size: 20px; font-weight: 600; }
+  .header .subtitle { font-size: 13px; opacity: 0.8; margin-top: 4px; }
+  .toolbar {
+    background: #fff; padding: 12px 24px;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+  }
+  .toolbar-left { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .toolbar-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  input[type="text"], input[type="date"], select {
+    border: 1px solid #d0d0d0; border-radius: 6px; padding: 7px 12px;
+    font-size: 13px; outline: none;
+  }
+  input:focus, select:focus { border-color: #1a73e8; }
+  button {
+    border: none; border-radius: 6px; padding: 7px 16px;
+    font-size: 13px; cursor: pointer; font-weight: 500;
+  }
+  .btn-primary { background: #1a73e8; color: #fff; }
+  .btn-primary:hover { background: #1557b0; }
+  .btn-outline { background: #fff; color: #333; border: 1px solid #d0d0d0; }
+  .btn-outline:hover { background: #f5f5f5; }
+  .placeholder-content {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: calc(100vh - 140px); color: #999;
+  }
+  .placeholder-content .icon { font-size: 64px; margin-bottom: 16px; }
+  .placeholder-content h2 { font-size: 18px; color: #666; margin-bottom: 8px; }
+  .placeholder-content p { font-size: 14px; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>&#128200; 产量汇总</h1>
+    <div class="subtitle">各线体产量统计与可视化看板</div>
+  </div>
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <input type="date" id="startDate" placeholder="开始日期">
+      <input type="date" id="endDate" placeholder="结束日期">
+      <select id="filterLine">
+        <option value="">全部线体</option>
+        <option value="A">A线</option>
+        <option value="VIP">VIP线</option>
+        <option value="B">B线</option>
+      </select>
+    </div>
+    <div class="toolbar-right">
+      <button class="btn-primary" onclick="alert('功能开发中...')">&#128202; 生成报表</button>
+      <button class="btn-outline" onclick="location.reload()">&#128260; 刷新</button>
+    </div>
+  </div>
+  <div class="placeholder-content">
+    <div class="icon">&#128200;</div>
+    <h2>产量汇总</h2>
+    <p>该模块正在开发中，敬请期待</p>
+  </div>
+</body>
+</html>
