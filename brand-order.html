@@ -653,7 +653,7 @@ function addOrderRow(data) {
   var row = document.createElement('tr');
   row.innerHTML =
     '<td style="text-align:center;color:#999">' + idx + '</td>' +
-    '<td><input type="date" class="o-date" value="' + (d.date || today()) + '"></td>' +
+    '<td><input type="date" class="o-date" value="' + (d.date || '') + '"></td>' +
     '<td><input type="text" class="o-orderNo" placeholder="订单单号" value="' + escHtml(d.orderNo || '') + '"></td>' +
     '<td><input type="text" class="o-materialNo" placeholder="料号" value="' + escHtml(d.materialNo || '') + '"></td>' +
     '<td><input type="text" class="o-productName" placeholder="品名" value="' + escHtml(d.productName || '') + '"></td>' +
