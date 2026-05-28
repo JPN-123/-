@@ -370,7 +370,7 @@
 </div>
 
 <!-- ===== 生产计划模块 ===== -->
-<div class="toolbar plan-section" id="planToolbar" style="display:none">
+<div class="toolbar plan-section" id="planToolbar">
   <div class="toolbar-left">
     <button class="btn-primary" onclick="openPlanModal()">+ 新增计划</button>
     <button class="btn-success" onclick="openReportModal()">+ 提交日报</button>
@@ -1037,35 +1037,21 @@ async function save() {
 
 
 
-// ========== Tab 切换 ==========
-function switchTab(tab) {
-  currentTab = tab;
-  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
-  document.querySelector('.tab-btn[onclick="switchTab(\'' + tab + '\')"]').classList.add('active');
-  document.getElementById('inventoryStats').style.display = tab === 'inventory' ? '' : 'none';
-  document.getElementById('productionStats').style.display = tab === 'production' ? '' : 'none';
-  document.querySelectorAll('.inv-section').forEach(function(el) { el.style.display = tab === 'inventory' ? '' : 'none'; });
-  document.querySelectorAll('.plan-section').forEach(function(el) { el.style.display = tab === 'production' ? '' : 'none'; });
-  if (tab === 'production') {
-    document.getElementById('planDateFilter').value = today();
-    renderPlans();
-  } else {
-    renderTable();
-  }
+// ========== 页面初始化 ==========
+function initProductionPage() {
+  document.getElementById('productionStats').style.display = '';
+  document.querySelectorAll('.inv-section').forEach(function(el) { el.style.display = 'none'; });
+  document.querySelectorAll('.plan-section').forEach(function(el) { el.style.display = ''; });
+  document.getElementById('planDateFilter').value = today();
+  renderPlans();
+  renderReportSummary();
 }
 
 function showApp() {
   renderUserInfo();
   renderToolbar();
   document.getElementById('headerSection').style.display = '';
-  switchTab(currentTab);
-  if (currentTab === 'inventory') {
-    renderTable();
-    refreshPersonDatalist();
-  } else {
-    document.getElementById('planDateFilter').value = today();
-    renderPlans();
-  }
+  initProductionPage();
 }
 
 function renderUserInfo() {
