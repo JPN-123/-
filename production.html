@@ -1041,7 +1041,7 @@ async function save() {
 function initProductionPage() {
   document.getElementById('productionStats').style.display = '';
   document.querySelectorAll('.inv-section').forEach(function(el) { el.style.display = 'none'; });
-  document.querySelectorAll('.plan-section').forEach(function(el) { el.style.display = ''; });
+  document.querySelectorAll('.plan-section').forEach(function(el) { el.style.display = el.classList.contains('toolbar') ? 'flex' : ''; });
   document.getElementById('planDateFilter').value = today();
   renderPlans();
   renderReportSummary();
