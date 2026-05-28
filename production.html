@@ -780,7 +780,7 @@
       <span style="color:#999;font-size:12px;margin-left:auto">提示：可直接从Excel复制粘贴到表格中</span>
     </div>
     <div id="importPanel" style="display:none;padding:0 24px 12px;flex-shrink:0">
-      <textarea class="import-area" id="importData" placeholder="从Excel复制多行数据粘贴到这里，格式：日期 计划单号 料号 品名 数量 完成时间 备注 线体 类别 下达时间 批次号 订单批次 资产归属 MOA状态 产量备注&#10;支持Tab分隔或空格分隔"></textarea>
+      <textarea class="import-area" id="importData" placeholder="从Excel复制多行数据粘贴到这里，格式：日期 计划单号 料号 品名 数量 完工入仓库 备注 线体 类别 下达时间 批次号 下发波次号 订单批次 资产归属 订单状态 上线时间 排产备注&#10;支持Tab分隔或空格分隔"></textarea>
       <div style="display:flex;gap:8px;margin-top:8px">
         <button class="btn-primary" onclick="parseImportData()">确认导入</button>
         <button class="btn-outline" onclick="document.getElementById('importPanel').style.display='none'">取消</button>
@@ -796,16 +796,18 @@
             <th style="width:100px">料号</th>
             <th style="width:120px">品名</th>
             <th style="width:60px">数量</th>
-            <th style="width:110px">完成时间</th>
+            <th style="width:110px">完工入仓库</th>
             <th style="width:100px">备注</th>
             <th style="width:80px">线体<span class="required">*</span></th>
             <th style="width:70px">类别</th>
             <th style="width:110px">下达时间</th>
             <th style="width:90px">批次号</th>
+            <th style="width:90px">下发波次号</th>
             <th style="width:90px">订单批次</th>
             <th style="width:80px">资产归属</th>
-            <th style="width:70px">MOA状态</th>
-            <th style="width:100px">产量备注</th>
+            <th style="width:80px">订单状态</th>
+            <th style="width:110px">上线时间</th>
+            <th style="width:100px">排产备注</th>
             <th style="width:30px">删</th>
           </tr>
         </thead>
@@ -1746,10 +1748,12 @@ function openPlanModal(editId) {
       '<td><input type="text" class="p-category" placeholder="类别" value="' + escHtml(d.category || '') + '"></td>' +
       '<td><input type="date" class="p-issueTime" value="' + (d.issueTime || '') + '"></td>' +
       '<td><input type="text" class="p-batchNo" placeholder="批次号" value="' + escHtml(d.batchNo || '') + '"></td>' +
+      '<td><input type="text" class="p-dispatchNo" placeholder="波次号" value="' + escHtml(d.dispatchNo || '') + '"></td>' +
       '<td><input type="text" class="p-orderBatch" placeholder="订单批次" value="' + escHtml(d.orderBatch || '') + '"></td>' +
       '<td><input type="text" class="p-assetBelong" placeholder="归属" value="' + escHtml(d.assetBelong || '') + '"></td>' +
       '<td><input type="text" class="p-moaStatus" placeholder="状态" value="' + escHtml(d.moaStatus || '') + '"></td>' +
-      '<td><input type="text" class="p-outputRemark" placeholder="产量备注" value="' + escHtml(d.outputRemark || '') + '"></td>' +
+      '<td><input type="date" class="p-onlineTime" value="' + (d.onlineTime || '') + '"></td>' +
+      '<td><input type="text" class="p-outputRemark" placeholder="排产备注" value="' + escHtml(d.outputRemark || '') + '"></td>' +
       '<td style="text-align:center"><span class="del-row" onclick="this.closest(\'tr\').remove();reindexPlanRows()">×</span></td>';
     tbody.appendChild(row);
   }
@@ -1775,10 +1779,12 @@ function openPlanModal(editId) {
       '<td><input type="text" class="p-category" placeholder="类别" value="' + escHtml(p.category || '') + '"></td>' +
       '<td><input type="date" class="p-issueTime" value="' + (p.issueTime || '') + '"></td>' +
       '<td><input type="text" class="p-batchNo" placeholder="批次号" value="' + escHtml(p.batchNo || '') + '"></td>' +
+      '<td><input type="text" class="p-dispatchNo" placeholder="波次号" value="' + escHtml(p.dispatchNo || '') + '"></td>' +
       '<td><input type="text" class="p-orderBatch" placeholder="订单批次" value="' + escHtml(p.orderBatch || '') + '"></td>' +
       '<td><input type="text" class="p-assetBelong" placeholder="归属" value="' + escHtml(p.assetBelong || '') + '"></td>' +
       '<td><input type="text" class="p-moaStatus" placeholder="状态" value="' + escHtml(p.moaStatus || '') + '"></td>' +
-      '<td><input type="text" class="p-outputRemark" placeholder="产量备注" value="' + escHtml(p.outputRemark || '') + '"></td>' +
+      '<td><input type="date" class="p-onlineTime" value="' + (p.onlineTime || '') + '"></td>' +
+      '<td><input type="text" class="p-outputRemark" placeholder="排产备注" value="' + escHtml(p.outputRemark || '') + '"></td>' +
       '<td style="text-align:center"><span class="del-row" onclick="this.closest(\'tr\').remove();reindexPlanRows()">×</span></td>';
     tbody.appendChild(row);
   }
@@ -1815,15 +1821,18 @@ function openPlanModal(editId) {
         category: parts[8] ? parts[8].trim() : '',
         issueTime: parts[9] ? parts[9].trim() : '',
         batchNo: parts[10] ? parts[10].trim() : '',
-        orderBatch: parts[11] ? parts[11].trim() : '',
-        assetBelong: parts[12] ? parts[12].trim() : '',
-        moaStatus: parts[13] ? parts[13].trim() : '',
-        outputRemark: parts[14] ? parts[14].trim() : ''
+        dispatchNo: parts[11] ? parts[11].trim() : '',
+        orderBatch: parts[12] ? parts[12].trim() : '',
+        assetBelong: parts[13] ? parts[13].trim() : '',
+        moaStatus: parts[14] ? parts[14].trim() : '',
+        onlineTime: parts[15] ? parts[15].trim() : '',
+        outputRemark: parts[16] ? parts[16].trim() : ''
       };
       // 转换日期格式
       if (d.date && d.date.match(/^\d{4}\/\d{2}\/\d{2}$/)) d.date = d.date.replace(/\//g, '-');
       if (d.finishTime && d.finishTime.match(/^\d{4}\/\d{2}\/\d{2}$/)) d.finishTime = d.finishTime.replace(/\//g, '-');
       if (d.issueTime && d.issueTime.match(/^\d{4}\/\d{2}\/\d{2}$/)) d.issueTime = d.issueTime.replace(/\//g, '-');
+      if (d.onlineTime && d.onlineTime.match(/^\d{4}\/\d{2}\/\d{2}$/)) d.onlineTime = d.onlineTime.replace(/\//g, '-');
       addPlanRow(d);
       imported++;
     });
@@ -1856,9 +1865,11 @@ function openPlanModal(editId) {
         category: getVal('p-category'),
         issueTime: getVal('p-issueTime'),
         batchNo: getVal('p-batchNo'),
+        dispatchNo: getVal('p-dispatchNo'),
         orderBatch: getVal('p-orderBatch'),
         assetBelong: getVal('p-assetBelong'),
         moaStatus: getVal('p-moaStatus'),
+        onlineTime: getVal('p-onlineTime'),
         outputRemark: getVal('p-outputRemark'),
         createdBy: currentUser ? currentUser.username : '',
         createdAt: new Date().toISOString()
