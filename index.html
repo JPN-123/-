@@ -219,6 +219,10 @@
       <span class="icon">&#128295;</span>
       <span>配件维修换料管理</span>
     </a>
+    <a class="nav-item" data-module="production" onclick="switchModule('production')">
+      <span class="icon">&#128200;</span>
+      <span>生产计划管理</span>
+    </a>
     <div class="nav-divider"></div>
     <a class="nav-item" id="navUserManage" onclick="openUserManage()" style="display:none">
       <span class="icon">&#128100;</span>
@@ -325,7 +329,8 @@ let gistData = null; // 缓存 Gist 完整数据
 
 // 模块地址映射
 const modules = {
-  inventory: 'inventory.html'
+  inventory: 'inventory.html',
+  production: 'production.html'
 };
 
 function showToast(msg) {
@@ -469,7 +474,7 @@ function switchModule(name) {
   const navEl = document.querySelector('[data-module="' + name + '"]');
   if (navEl) navEl.classList.add('active');
   // 构建 iframe URL（加 v 参数绕过缓存）
-  let url = modules[name] + '?v=20260528b';
+  let url = modules[name] + '?v=20260528c';
   // 透传 token
   if (GITHUB_TOKEN) {
     url += '&token=' + encodeURIComponent(GITHUB_TOKEN);
