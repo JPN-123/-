@@ -244,6 +244,12 @@
       <option value="排产中">排产中</option>
       <option value="完工">完工</option>
     </select>
+    <select id="filterWarn">
+      <option value="">全部预警</option>
+      <option value="normal">正常</option>
+      <option value="warn36">预警 36h+</option>
+      <option value="warn72">预警 72h+</option>
+    </select>
     <input type="text" id="filterSearch" placeholder="批量查询（多关键词用逗号/空格/换行分隔）" style="width:280px">
   </div>
   <div class="toolbar-right">
@@ -662,14 +668,17 @@ function updateStats() {
 }
 
 // ========== 订单渲染 ==========
-function getOrderTimeoutClass(o) {
-  if (o.orderStatus === '完工' || o.orderStatus === '撤单') return '';
+function getOrderTimeoutHours(o) {
+  if (o.orderStatus === '完工' || o.orderStatus === '撤单') return -1;
   var t = o.orderTime;
-  if (!t) return '';
-  // 支持多种日期格式解析
+  if (!t) return -1;
   var d = new Date(t.replace(/\//g, '-'));
-  if (isNaN(d.getTime())) return '';
-  var hours = (Date.now() - d.getTime()) / 3600000;
+  if (isNaN(d.getTime())) return -1;
+  return (Date.now() - d.getTime()) / 3600000;
+}
+function getOrderTimeoutClass(o) {
+  var hours = getOrderTimeoutHours(o);
+  if (hours < 0) return '';
   if (hours >= 72) return 'row-danger';
   if (hours >= 36) return 'row-warn';
   return '';
@@ -678,6 +687,7 @@ function renderOrders() {
   var dateFilter = document.getElementById('filterDate').value;
   var lineFilter = document.getElementById('filterStatus').value;
   var orderStatusFilter = document.getElementById('filterOrderStatus').value;
+  var warnFilter = document.getElementById('filterWarn').value;
   var searchRaw = document.getElementById('filterSearch').value.trim().toLowerCase();
   var searchTerms = searchRaw ? searchRaw.split(/[,，\s\n]+/).filter(function(s){ return s.length>0; }) : [];
   var tbody = document.getElementById('orderTableBody');
@@ -688,6 +698,15 @@ function renderOrders() {
   if (dateFilter) filtered = filtered.filter(function(x) { return x.date === dateFilter; });
   if (lineFilter) filtered = filtered.filter(function(x) { return x.line === lineFilter; });
   if (orderStatusFilter) filtered = filtered.filter(function(x) { return x.orderStatus === orderStatusFilter; });
+  if (warnFilter) {
+    filtered = filtered.filter(function(x) {
+      var h = getOrderTimeoutHours(x);
+      if (warnFilter === 'normal') return h >= 0 && h < 36;
+      if (warnFilter === 'warn36') return h >= 36 && h < 72;
+      if (warnFilter === 'warn72') return h >= 72;
+      return true;
+    });
+  }
   if (searchTerms.length > 0) {
     filtered = filtered.filter(function(x) {
       return searchTerms.some(function(term) {
@@ -746,6 +765,7 @@ function renderOrders() {
 document.getElementById('filterDate').addEventListener('change', renderOrders);
 document.getElementById('filterStatus').addEventListener('change', renderOrders);
 document.getElementById('filterOrderStatus').addEventListener('change', renderOrders);
+document.getElementById('filterWarn').addEventListener('change', renderOrders);
 document.getElementById('filterSearch').addEventListener('input', renderOrders);
 
 // ========== 订单 CRUD ==========
@@ -1189,12 +1209,22 @@ function exportToExcel() {
   var dateFilter = document.getElementById('filterDate').value;
   var lineFilter = document.getElementById('filterStatus').value;
   var orderStatusFilter = document.getElementById('filterOrderStatus').value;
+  var warnFilter = document.getElementById('filterWarn').value;
   var searchRaw = document.getElementById('filterSearch').value.trim().toLowerCase();
   var searchTerms = searchRaw ? searchRaw.split(/[,，\s\n]+/).filter(function(s){ return s.length>0; }) : [];
   var filtered = brandOrders.slice();
   if (dateFilter) filtered = filtered.filter(function(x) { return x.date === dateFilter; });
   if (lineFilter) filtered = filtered.filter(function(x) { return x.line === lineFilter; });
   if (orderStatusFilter) filtered = filtered.filter(function(x) { return x.orderStatus === orderStatusFilter; });
+  if (warnFilter) {
+    filtered = filtered.filter(function(x) {
+      var h = getOrderTimeoutHours(x);
+      if (warnFilter === 'normal') return h >= 0 && h < 36;
+      if (warnFilter === 'warn36') return h >= 36 && h < 72;
+      if (warnFilter === 'warn72') return h >= 72;
+      return true;
+    });
+  }
   if (searchTerms.length > 0) {
     filtered = filtered.filter(function(x) {
       return searchTerms.some(function(term) {
