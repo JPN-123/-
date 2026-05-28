@@ -203,6 +203,8 @@
     <div class="stat-item"><div class="num" id="statPending">0</div><div class="label">待处理</div></div>
     <div class="stat-item"><div class="num" id="statProcessing">0</div><div class="label">进行中</div></div>
     <div class="stat-item"><div class="num" id="statCompleted">0</div><div class="label">已完成</div></div>
+    <div class="stat-item"><div class="num" id="statOnline">0</div><div class="label">在线</div></div>
+    <div class="stat-item"><div class="num" id="statOffline">0</div><div class="label">未上线</div></div>
   </div>
   <div class="user-info" id="userInfo" style="display:none">
     <span id="currentUserName">admin</span>
@@ -639,10 +641,14 @@ function updateStats() {
   var total = brandOrders.length;
   var totalQty = brandOrders.reduce(function(s, o) { return s + (o.qty || 0); }, 0);
   var completed = brandOrders.reduce(function(s, o) { return s + (o.completedQty || 0); }, 0);
+  var onlineQty = brandOrders.filter(function(o) { return o.orderStatus === '排产中'; }).reduce(function(s, o) { return s + (o.qty || 0); }, 0);
+  var offlineQty = brandOrders.filter(function(o) { return o.orderStatus === '未备料' || o.orderStatus === '已备料'; }).reduce(function(s, o) { return s + (o.qty || 0); }, 0);
   document.getElementById('statTotal').textContent = total;
   document.getElementById('statPending').textContent = totalQty;
   document.getElementById('statProcessing').textContent = completed;
   document.getElementById('statCompleted').textContent = totalQty > 0 ? Math.round(completed / totalQty * 100) + '%' : '0%';
+  document.getElementById('statOnline').textContent = onlineQty;
+  document.getElementById('statOffline').textContent = offlineQty;
   document.querySelector('#headerStats .stat-item:nth-child(2) .label').textContent = '总数量';
   document.querySelector('#headerStats .stat-item:nth-child(3) .label').textContent = '完工数量';
   document.querySelector('#headerStats .stat-item:nth-child(4) .label').textContent = '完成率';
