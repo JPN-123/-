@@ -574,7 +574,6 @@ function renderOrders() {
              (x.orderStatus && x.orderStatus.toLowerCase().indexOf(searchFilter) !== -1);
     });
   }
-  filtered = filtered.filter(function(x) { return x.orderStatus !== '完工'; });
   filtered.sort(function(a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
 
   if (filtered.length === 0) {
