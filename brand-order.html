@@ -350,16 +350,37 @@
 
 <!-- 入库模态框 -->
 <div class="modal-overlay" id="inboundModal">
-  <div class="modal" style="max-width:900px">
+  <div class="modal" style="max-width:1000px">
     <div class="modal-header">
       <h3>订单入库录入</h3>
       <span class="close" onclick="closeInboundModal()">&times;</span>
     </div>
     <div class="modal-body">
-      <div style="margin-bottom:12px">
-        <input type="text" id="inboundSearch" placeholder="输入订单号/料号查询..." style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px" oninput="renderInboundQuery()">
+      <!-- 粘贴导入区 -->
+      <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center">
+        <button class="btn-purple" onclick="toggleInboundPastePanel()">&#128203; 粘贴导入</button>
+        <button class="btn-outline" onclick="clearInboundSelections()" style="font-size:12px">清空选择</button>
+        <span style="font-size:12px;color:#999">可粘贴Excel入库数据批量匹配，也可手动搜索逐条勾选</span>
       </div>
-      <div style="margin-bottom:8px;font-size:12px;color:#999">查询结果：点击选择订单，填入调入数量和调入单号</div>
+      <div id="inboundPastePanel" style="display:none;margin-bottom:12px;background:#f8f9ff;border:1px solid #c5d3f5;border-radius:8px;padding:12px">
+        <div style="font-size:12px;color:#555;margin-bottom:6px;font-weight:600">&#128203; 粘贴导入入库数据</div>
+        <div style="font-size:11px;color:#888;margin-bottom:8px">
+          从Excel复制整行数据（Tab分隔），列顺序：<br>
+          <b>日期 / 单号 / 料号 / 品名 / 数量 / 线体 / 入库数量 / 备注 / 仓库 / 调总仓单号</b><br>
+          自动按<b>单号</b>匹配订单，填入入库数量和调入单号。
+        </div>
+        <textarea id="inboundPasteText" class="import-area" style="height:90px;font-size:12px;background:#fff" placeholder="从Excel选中多行后 Ctrl+C，然后在这里 Ctrl+V 粘贴..."></textarea>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button class="btn-primary" onclick="parseInboundPaste()">&#9654; 解析并匹配</button>
+          <button class="btn-outline" onclick="document.getElementById('inboundPasteText').value=''">清空</button>
+        </div>
+        <div id="inboundPasteMsg" style="margin-top:6px;font-size:12px"></div>
+      </div>
+      <!-- 搜索过滤 -->
+      <div style="margin-bottom:12px">
+        <input type="text" id="inboundSearch" placeholder="输入订单号/料号/品名查询..." style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px" oninput="renderInboundQuery()">
+      </div>
+      <div style="margin-bottom:8px;font-size:12px;color:#999">查询结果：勾选订单，填入调入数量和调入单号后点保存</div>
       <div class="table-scroll">
         <table>
           <thead>
@@ -370,18 +391,18 @@
               <th>品名</th>
               <th>仓库</th>
               <th style="width:80px">订单数量</th>
-              <th style="width:100px">调入数量</th>
-              <th style="width:120px">调入单号</th>
+              <th style="width:100px">入库数量</th>
+              <th style="width:150px">调入单号</th>
             </tr>
           </thead>
           <tbody id="inboundQueryBody"></tbody>
         </table>
       </div>
-      <div style="margin-top:10px;font-size:12px;color:#666">已选 <span id="inboundSelectedCount">0</span> 条</div>
+      <div style="margin-top:10px;font-size:12px;color:#666">已选 <span id="inboundSelectedCount">0</span> 条 &nbsp;|&nbsp; 显示 <span id="inboundShowCount">0</span> 条</div>
     </div>
     <div class="modal-footer">
       <button class="btn-outline" onclick="closeInboundModal()">取消</button>
-      <button class="btn-primary" onclick="submitInbound()">保存</button>
+      <button class="btn-primary" onclick="submitInbound()">保存入库</button>
     </div>
   </div>
 </div>
@@ -1031,10 +1052,72 @@ function formatRemark(remark) {
 function openInboundModal() {
   document.getElementById('inboundModal').style.display = 'flex';
   document.getElementById('inboundSearch').value = '';
+  document.getElementById('inboundPastePanel').style.display = 'none';
+  document.getElementById('inboundPasteText').value = '';
+  document.getElementById('inboundPasteMsg').textContent = '';
   renderInboundQuery();
 }
 function closeInboundModal() {
   document.getElementById('inboundModal').style.display = 'none';
+}
+function toggleInboundPastePanel() {
+  var panel = document.getElementById('inboundPastePanel');
+  panel.style.display = panel.style.display === 'none' ? '' : 'none';
+}
+function clearInboundSelections() {
+  brandOrders.forEach(function(o) {
+    o._inboundSelected = false;
+    o._inboundQty = '';
+    o._inboundTransferNo = '';
+  });
+  renderInboundQuery();
+  showToast('已清空所有选择');
+}
+// 粘贴导入解析：列顺序 日期/单号/料号/品名/数量/线体/入库数量/备注/仓库/调总仓单号
+function parseInboundPaste() {
+  var text = document.getElementById('inboundPasteText').value.trim();
+  if (!text) { showToast('请先粘贴数据'); return; }
+  var lines = text.split(/\r?\n/).filter(function(l) { return l.trim(); });
+  var matched = 0, notFound = [], skipped = 0;
+  lines.forEach(function(line) {
+    var parts = line.split('\t');
+    if (parts.length < 7) { skipped++; return; }
+    // 列映射：A=0日期 B=1单号 C=2料号 D=3品名 E=4数量 F=5线体 G=6入库数量 H=7备注 I=8仓库 J=9调总仓单号
+    var orderNo = (parts[1] || '').trim();
+    var inboundQty = parseInt(parts[6]) || 0;
+    var transferNo = (parts[9] || '').trim();
+    if (!orderNo) { skipped++; return; }
+    // 匹配订单（优先精确匹配单号）
+    var order = brandOrders.find(function(o) { return o.orderNo === orderNo; });
+    if (!order) {
+      // 尝试模糊匹配（忽略大小写）
+      order = brandOrders.find(function(o) { return o.orderNo && o.orderNo.toLowerCase() === orderNo.toLowerCase(); });
+    }
+    if (order) {
+      order._inboundSelected = true;
+      order._inboundQty = inboundQty > 0 ? String(inboundQty) : (order._inboundQty || '');
+      if (transferNo) order._inboundTransferNo = transferNo;
+      matched++;
+    } else {
+      notFound.push(orderNo);
+    }
+  });
+  // 关闭粘贴面板，刷新列表
+  document.getElementById('inboundPastePanel').style.display = 'none';
+  document.getElementById('inboundSearch').value = '';
+  renderInboundQuery();
+  // 显示结果
+  var msgEl = document.getElementById('inboundPasteMsg');
+  var msgs = [];
+  if (matched > 0) msgs.push('<span style="color:#34a853;font-weight:600">✔ 成功匹配 ' + matched + ' 条</span>');
+  if (notFound.length > 0) msgs.push('<span style="color:#ea4335">✘ 未找到订单（' + notFound.length + '条）：' + notFound.slice(0,5).join('、') + (notFound.length>5?'..':'') + '</span>');
+  if (skipped > 0) msgs.push('<span style="color:#999">跳过 ' + skipped + ' 行（列数不足）</span>');
+  msgEl.innerHTML = msgs.join(' &nbsp; ');
+  if (matched > 0) {
+    showToast('已匹配 ' + matched + ' 条，请确认后点保存入库');
+  } else {
+    showToast('未匹配到任何订单，请检查单号格式');
+  }
 }
 function renderInboundQuery() {
   var raw = document.getElementById('inboundSearch').value.trim().toLowerCase();
@@ -1042,29 +1125,43 @@ function renderInboundQuery() {
   var tbody = document.getElementById('inboundQueryBody');
   var html = '';
   var selected = 0;
-  var filtered = terms.length > 0 ? brandOrders.filter(function(o) {
-    return terms.some(function(term) {
-      return (o.orderNo && o.orderNo.toLowerCase().indexOf(term) !== -1) ||
-             (o.materialNo && o.materialNo.toLowerCase().indexOf(term) !== -1) ||
-             (o.productName && o.productName.toLowerCase().indexOf(term) !== -1);
+  // 统计全部已选数量
+  brandOrders.forEach(function(o) { if (o._inboundSelected) selected++; });
+  // 筛选显示：有搜索词时过滤，无搜索词时显示全部（优先显示已选中的）
+  var filtered;
+  if (terms.length > 0) {
+    filtered = brandOrders.filter(function(o) {
+      return terms.some(function(term) {
+        return (o.orderNo && o.orderNo.toLowerCase().indexOf(term) !== -1) ||
+               (o.materialNo && o.materialNo.toLowerCase().indexOf(term) !== -1) ||
+               (o.productName && o.productName.toLowerCase().indexOf(term) !== -1);
+      });
     });
-  }) : brandOrders;
+  } else {
+    // 无搜索词：已选的排前面
+    filtered = brandOrders.slice().sort(function(a, b) {
+      return (b._inboundSelected ? 1 : 0) - (a._inboundSelected ? 1 : 0);
+    });
+  }
   filtered.forEach(function(o) {
     var checked = o._inboundSelected ? 'checked' : '';
-    if (o._inboundSelected) selected++;
-    html += '<tr data-order-no="' + escHtml(o.orderNo) + '">' +
-      '<td style="text-align:center"><input type="checkbox" class="i-check" ' + checked + ' onchange="toggleInboundSelect(\'' + escHtml(o.orderNo) + '\',this.checked)"></td>' +
-      '<td>' + escHtml(o.orderNo || '-') + '</td>' +
+    var rowStyle = o._inboundSelected ? ' style="background:#e8f5e9"' : '';
+    var safeOrderNo = escHtml(o.orderNo || '');
+    html += '<tr' + rowStyle + ' data-order-no="' + safeOrderNo + '">' +
+      '<td style="text-align:center"><input type="checkbox" class="i-check" ' + checked + ' onchange="toggleInboundSelect(\'' + safeOrderNo + '\',this.checked)"></td>' +
+      '<td style="font-weight:' + (o._inboundSelected?'700':'400') + ';color:' + (o._inboundSelected?'#1a73e8':'inherit') + '">' + escHtml(o.orderNo || '-') + '</td>' +
       '<td>' + escHtml(o.materialNo || '-') + '</td>' +
       '<td>' + escHtml(o.productName || '-') + '</td>' +
       '<td>' + escHtml(o.warehouse || '-') + '</td>' +
       '<td style="text-align:right;font-weight:600">' + (o.qty || 0) + '</td>' +
-      '<td><input type="number" class="i-qty" placeholder="0" value="' + (o._inboundQty || '') + '" style="width:100%;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right" onchange="updateInboundQty(\'' + escHtml(o.orderNo) + '\',this.value)"></td>' +
-      '<td><input type="text" class="i-transferNo" placeholder="调入单号" value="' + escHtml(o._inboundTransferNo || '') + '" style="width:100%;padding:4px;border:1px solid #ddd;border-radius:4px" onchange="updateInboundTransferNo(\'' + escHtml(o.orderNo) + '\',this.value)"></td>' +
+      '<td><input type="number" class="i-qty" placeholder="0" value="' + escHtml(o._inboundQty || '') + '" style="width:100%;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right' + (o._inboundSelected?';border-color:#34a853':'') + '" onchange="updateInboundQty(\'' + safeOrderNo + '\',this.value)"></td>' +
+      '<td><input type="text" class="i-transferNo" placeholder="调总仓单号" value="' + escHtml(o._inboundTransferNo || '') + '" style="width:100%;padding:4px;border:1px solid #ddd;border-radius:4px' + (o._inboundSelected?';border-color:#34a853':'') + '" onchange="updateInboundTransferNo(\'' + safeOrderNo + '\',this.value)"></td>' +
     '</tr>';
   });
   tbody.innerHTML = html || '<tr><td colspan="8" style="text-align:center;color:#999;padding:20px">无匹配订单</td></tr>';
   document.getElementById('inboundSelectedCount').textContent = selected;
+  var showCountEl = document.getElementById('inboundShowCount');
+  if (showCountEl) showCountEl.textContent = filtered.length;
 }
 function toggleInboundSelect(orderNo, checked) {
   var order = brandOrders.find(function(o) { return o.orderNo === orderNo; });
@@ -1107,14 +1204,14 @@ function submitInbound() {
     }
   });
   if (updated > 0) {
-    saveData(function() {
+    save().then(function() {
       showToast('已更新 ' + updated + ' 条订单入库信息');
       closeInboundModal();
       renderOrders();
       updateStats();
     });
   } else {
-    showToast('请至少选择一条订单并填入调入数量');
+    showToast('请至少选择一条订单并填入入库数量');
   }
 }
 
