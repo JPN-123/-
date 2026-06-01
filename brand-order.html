@@ -1176,6 +1176,23 @@ function updateInboundTransferNo(orderNo, val) {
   if (order) { order._inboundTransferNo = val; }
 }
 function submitInbound() {
+  // 先把 DOM 中所有可见行的当前值同步回 brandOrders（防止用户未 blur 导致 onchange 未触发）
+  var tbody = document.getElementById('inboundQueryBody');
+  if (tbody) {
+    var rows = tbody.querySelectorAll('tr[data-order-no]');
+    rows.forEach(function(row) {
+      var orderNo = row.getAttribute('data-order-no');
+      if (!orderNo) return;
+      var order = brandOrders.find(function(o) { return o.orderNo === orderNo; });
+      if (!order) return;
+      var qtyInput = row.querySelector('.i-qty');
+      var noInput = row.querySelector('.i-transferNo');
+      var checkInput = row.querySelector('.i-check');
+      if (checkInput) order._inboundSelected = checkInput.checked;
+      if (qtyInput && qtyInput.value !== '') order._inboundQty = qtyInput.value;
+      if (noInput && noInput.value !== '') order._inboundTransferNo = noInput.value;
+    });
+  }
   var updated = 0;
   var now = new Date().toISOString();
   var operator = currentUser ? currentUser.username : 'admin';
