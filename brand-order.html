@@ -1199,7 +1199,7 @@ function submitInbound() {
   brandOrders.forEach(function(o) {
     if (o._inboundSelected && o._inboundQty) {
       var qty = parseInt(o._inboundQty) || 0;
-      o.completedQty = qty;
+      o.completedQty = (parseInt(o.completedQty) || 0) + qty;  // 累加，支持分批入库
       o.mesStatus = o.completedQty >= o.qty ? '已入库' : '未入库';
       // 保存流水记录
       inboundRecords.push({
