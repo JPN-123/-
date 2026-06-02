@@ -1201,6 +1201,7 @@ function submitInbound() {
       var qty = parseInt(o._inboundQty) || 0;
       o.completedQty = (parseInt(o.completedQty) || 0) + qty;  // 累加，支持分批入库
       o.mesStatus = o.completedQty >= o.qty ? '已入库' : '未入库';
+      if (o.completedQty >= o.qty) o.orderStatus = '完工';  // 累计达到订单数量时自动完工
       // 保存流水记录
       inboundRecords.push({
         id: Date.now() + Math.random().toString(36).substr(2, 6),
@@ -1528,6 +1529,7 @@ async function runInboundMigration() {
       if (totalInbound > 0) {
         order.completedQty = totalInbound;
         order.mesStatus = totalInbound >= (order.qty || 0) ? '已入库' : '未入库';
+        if (totalInbound >= (order.qty || 0)) order.orderStatus = '完工';
         updated++;
         if (!sampleMatch) sampleMatch = order.orderNo;
       }
