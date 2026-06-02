@@ -797,15 +797,15 @@ function renderDashboard() {
     var completedQty = parseInt(o.completedQty) || 0;
     stats[cat].qty += qty;
     grandTotal.qty += qty;
-    if (o.orderStatus === '完工') {
-      stats[cat].completed += qty;
-      grandTotal.completed += qty;
-    } else if (o.orderStatus === '排产中') {
+    // 已完结 = 所有订单的 completedQty 求和（与顶部完工数量口径一致）
+    stats[cat].completed += completedQty;
+    grandTotal.completed += completedQty;
+    if (o.orderStatus === '排产中') {
       stats[cat].online += (qty - completedQty);
       grandTotal.online += (qty - completedQty);
     } else if (o.orderStatus === '未备料' || o.orderStatus === '已备料') {
-      stats[cat].offline += qty;
-      grandTotal.offline += qty;
+      stats[cat].offline += (qty - completedQty);
+      grandTotal.offline += (qty - completedQty);
     }
   });
   var html = '';
