@@ -777,15 +777,15 @@ function getWarehouseCategory(warehouse) {
   if (w.indexOf('定制机') !== -1) return '定制机';
   if (w.indexOf('品牌机') !== -1) return '品牌机';
   if (w.indexOf('华小') !== -1 || w.indexOf('华小擎') !== -1 || w.indexOf('华小攀') !== -1) return '华小擎';
-  if (w.indexOf('组派') !== -1 || w.indexOf('组装') !== -1) return '组派';
-  if (w.indexOf('代工') !== -1) return '代工';
+  if (w.indexOf('纽派') !== -1) return '纽派';
+  if (w.indexOf('汇创') !== -1) return '代工';
   return '其他';
 }
 function renderDashboard() {
   var panel = document.getElementById('brandDashboard');
   if (!panel) return;
   panel.style.display = '';
-  var categories = ['代运营','定制机','品牌机','华小擎','组派','代工','其他'];
+  var categories = ['代运营','定制机','品牌机','华小擎','纽派','代工','其他'];
   var stats = {};
   categories.forEach(function(c) {
     stats[c] = { qty:0, completed:0, online:0, offline:0 };
