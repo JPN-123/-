@@ -1336,6 +1336,21 @@ function submitInbound() {
       if (noInput && noInput.value !== '') order._inboundTransferNo = noInput.value;
     });
   }
+  // 检查累计入库数量是否超过订单数量
+  var warnings = [];
+  brandOrders.forEach(function(o) {
+    if (!o._inboundSelected) return;
+    var newQty = parseInt(o._inboundQty) || 0;
+    if (newQty <= 0) return;
+    var oldCompleted = parseInt(o.completedQty) || 0;
+    var totalAfter = oldCompleted + newQty;
+    if (totalAfter > (parseInt(o.qty) || 0)) {
+      warnings.push(o.orderNo + '：已完工' + oldCompleted + ' + 本次' + newQty + ' = ' + totalAfter + '，超出订单数量' + (o.qty || 0));
+    }
+  });
+  if (warnings.length > 0 && !confirm('⚠️ 以下订单累计入库将超出订单数量：\n\n' + warnings.slice(0,5).join('\n') + (warnings.length > 5 ? '\n...共' + warnings.length + '条' : '') + '\n\n是否继续保存？')) {
+    return;
+  }
   var updated = 0;
   var now = new Date().toISOString();
   var operator = currentUser ? currentUser.username : 'admin';
