@@ -574,19 +574,24 @@ function applyData(data) {
   brandOrders.forEach(function(o) {
     if (o.orderStatus === '0' || o.orderStatus === 0) o.orderStatus = '';
   });
-  // 全量校正：根据 inboundRecords 重算 completedQty，并同步 orderStatus
-  // 避免历史数据中 completedQty 已满但 orderStatus 未变为"完工"的问题
+  // 全量校正：确保 completedQty >= qty 的订单状态为"完工"
   brandOrders.forEach(function(o) {
-    // 如果已手动设置完工/撤单，不覆盖
-    if (o.orderStatus === '完工' || o.orderStatus === '撤单') return;
+    if (o.orderStatus === '撤单') return; // 撤单不覆盖
+    var completedQty = parseInt(o.completedQty) || 0;
+    var qty = parseInt(o.qty) || 0;
+    // 方式1：从 inboundRecords 重算累计入库量（更准确）
     var totalInbound = 0;
     (inboundRecords || []).forEach(function(rec) {
       if (rec.orderNo === o.orderNo) totalInbound += (rec.inboundQty || 0);
     });
     if (totalInbound > 0) {
+      completedQty = totalInbound;
       o.completedQty = totalInbound;
-      o.mesStatus = totalInbound >= (o.qty || 0) ? '已入库' : '未入库';
-      if (totalInbound >= (o.qty || 0)) o.orderStatus = '完工';
+    }
+    // 方式2：completedQty 直接达到 qty（手动录入或迁移数据）
+    if (completedQty > 0 && qty > 0 && completedQty >= qty) {
+      o.mesStatus = '已入库';
+      o.orderStatus = '完工';
     }
   });
 }
