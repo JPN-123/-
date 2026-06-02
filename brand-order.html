@@ -694,7 +694,7 @@ function showApp() {
 function updateStats() {
   var total = brandOrders.length;
   var totalQty = brandOrders.reduce(function(s, o) { return s + (o.qty || 0); }, 0);
-  var completed = brandOrders.reduce(function(s, o) { return s + (o.completedQty || 0); }, 0);
+  var completed = brandOrders.filter(function(o) { return o.orderStatus === '完工'; }).reduce(function(s, o) { return s + (o.completedQty || 0); }, 0);
   var onlineOrders = brandOrders.filter(function(o) { return o.orderStatus === '排产中'; });
   // 在线 = 排产中订单的总数量 - 已完工数量（即还在线上生产的）
   var onlineQty = onlineOrders.reduce(function(s, o) { return s + (o.qty || 0); }, 0) - onlineOrders.reduce(function(s, o) { return s + (o.completedQty || 0); }, 0);
