@@ -695,8 +695,8 @@ function updateStats() {
   var total = brandOrders.length;
   var totalQty = brandOrders.reduce(function(s, o) { return s + (o.qty || 0); }, 0);
   var completed = brandOrders.reduce(function(s, o) { return s + (o.completedQty || 0); }, 0);
-  var onlineQty = brandOrders.filter(function(o) { return o.orderStatus === '排产中'; }).reduce(function(s, o) { return s + (o.qty || 0); }, 0);
-  var offlineQty = brandOrders.filter(function(o) { return o.orderStatus === '未备料' || o.orderStatus === '已备料'; }).reduce(function(s, o) { return s + (o.qty || 0); }, 0);
+  var onlineQty = brandOrders.filter(function(o) { return o.orderStatus === '排产中'; }).reduce(function(s, o) { return s + (o.completedQty || 0); }, 0);
+  var offlineQty = brandOrders.filter(function(o) { return o.orderStatus === '未备料' || o.orderStatus === '已备料'; }).reduce(function(s, o) { return s + (o.completedQty || 0); }, 0);
   document.getElementById('statTotal').textContent = total;
   document.getElementById('statPending').textContent = totalQty;
   document.getElementById('statProcessing').textContent = completed;
