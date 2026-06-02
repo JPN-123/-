@@ -574,6 +574,21 @@ function applyData(data) {
   brandOrders.forEach(function(o) {
     if (o.orderStatus === '0' || o.orderStatus === 0) o.orderStatus = '';
   });
+  // 全量校正：根据 inboundRecords 重算 completedQty，并同步 orderStatus
+  // 避免历史数据中 completedQty 已满但 orderStatus 未变为"完工"的问题
+  brandOrders.forEach(function(o) {
+    // 如果已手动设置完工/撤单，不覆盖
+    if (o.orderStatus === '完工' || o.orderStatus === '撤单') return;
+    var totalInbound = 0;
+    (inboundRecords || []).forEach(function(rec) {
+      if (rec.orderNo === o.orderNo) totalInbound += (rec.inboundQty || 0);
+    });
+    if (totalInbound > 0) {
+      o.completedQty = totalInbound;
+      o.mesStatus = totalInbound >= (o.qty || 0) ? '已入库' : '未入库';
+      if (totalInbound >= (o.qty || 0)) o.orderStatus = '完工';
+    }
+  });
 }
 
 function collectData() {
