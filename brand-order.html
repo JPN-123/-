@@ -191,6 +191,44 @@
   .loading-overlay.hidden { display: none; }
   .spinner { width: 40px; height: 40px; border: 3px solid #e0e0e0; border-top-color: #1a73e8; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 12px; }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* BRAND订单状态看板 */
+  .dashboard-panel {
+    margin: 0 24px 16px; background: #fff; border-radius: 8px;
+    border: 1px solid #e0e0e0; padding: 16px 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  }
+  .dashboard-title {
+    font-size: 14px; font-weight: 600; color: #333;
+    margin-bottom: 12px; padding-bottom: 8px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .dashboard-table-wrap { overflow-x: auto; }
+  .dashboard-table {
+    width: 100%; border-collapse: collapse; font-size: 13px;
+  }
+  .dashboard-table th {
+    background: #f8f9fa; padding: 10px 8px; font-size: 12px;
+    color: #666; border: 1px solid #e8e8e8; text-align: center;
+    font-weight: 600;
+  }
+  .dashboard-table td {
+    padding: 10px 8px; border: 1px solid #e8e8e8; text-align: center;
+    color: #333;
+  }
+  .dashboard-table tr:nth-child(even) { background: #fafbfc; }
+  .dashboard-table tr:hover { background: #f0f7ff; }
+  .dashboard-table tr.total-row {
+    background: #e8f0fe; font-weight: 700;
+  }
+  .dashboard-table tr.total-row td {
+    color: #1a73e8; border-top: 2px solid #1a73e8;
+  }
+  .dashboard-toggle {
+    margin-left: auto; font-size: 12px; color: #1a73e8;
+    cursor: pointer; user-select: none;
+  }
+  .dashboard-toggle:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -258,6 +296,26 @@
     <button class="btn-purple" onclick="openInboundHistoryModal()">&#128197; 入库流水</button>
     <button class="btn-success" onclick="exportToExcel()">&#128190; 导出Excel</button>
     <button class="btn-outline" onclick="location.reload()">&#128260; 刷新</button>
+  </div>
+</div>
+
+<!-- BRAND订单状态看板 -->
+<div class="dashboard-panel" id="brandDashboard" style="display:none">
+  <div class="dashboard-title">&#128202; BRAND订单状态看板</div>
+  <div class="dashboard-table-wrap">
+    <table class="dashboard-table">
+      <thead>
+        <tr>
+          <th style="width:100px">订单分类</th>
+          <th style="width:80px">数量</th>
+          <th style="width:80px">已完结</th>
+          <th style="width:80px">在线</th>
+          <th style="width:80px">未上线</th>
+          <th style="width:80px">占比</th>
+        </tr>
+      </thead>
+      <tbody id="dashboardBody"></tbody>
+    </table>
   </div>
 </div>
 
@@ -709,6 +767,68 @@ function updateStats() {
   document.querySelector('#headerStats .stat-item:nth-child(2) .label').textContent = '总数量';
   document.querySelector('#headerStats .stat-item:nth-child(3) .label').textContent = '完工数量';
   document.querySelector('#headerStats .stat-item:nth-child(4) .label').textContent = '完成率';
+  renderDashboard();
+}
+
+// ========== BRAND订单状态看板 ==========
+function getWarehouseCategory(warehouse) {
+  var w = (warehouse || '').toLowerCase();
+  if (w.indexOf('代运营') !== -1) return '代运营';
+  if (w.indexOf('定制机') !== -1) return '定制机';
+  if (w.indexOf('品牌机') !== -1) return '品牌机';
+  if (w.indexOf('华小') !== -1 || w.indexOf('华小擎') !== -1 || w.indexOf('华小攀') !== -1) return '华小擎';
+  if (w.indexOf('组派') !== -1 || w.indexOf('组装') !== -1) return '组派';
+  if (w.indexOf('代工') !== -1) return '代工';
+  return '其他';
+}
+function renderDashboard() {
+  var panel = document.getElementById('brandDashboard');
+  if (!panel) return;
+  panel.style.display = '';
+  var categories = ['代运营','定制机','品牌机','华小擎','组派','代工','其他'];
+  var stats = {};
+  categories.forEach(function(c) {
+    stats[c] = { qty:0, completed:0, online:0, offline:0 };
+  });
+  var grandTotal = { qty:0, completed:0, online:0, offline:0 };
+  brandOrders.forEach(function(o) {
+    var cat = getWarehouseCategory(o.warehouse);
+    var qty = parseInt(o.qty) || 0;
+    var completedQty = parseInt(o.completedQty) || 0;
+    stats[cat].qty += qty;
+    grandTotal.qty += qty;
+    if (o.orderStatus === '完工') {
+      stats[cat].completed += qty;
+      grandTotal.completed += qty;
+    } else if (o.orderStatus === '排产中') {
+      stats[cat].online += (qty - completedQty);
+      grandTotal.online += (qty - completedQty);
+    } else if (o.orderStatus === '未备料' || o.orderStatus === '已备料') {
+      stats[cat].offline += qty;
+      grandTotal.offline += qty;
+    }
+  });
+  var html = '';
+  categories.forEach(function(c) {
+    var s = stats[c];
+    if (s.qty === 0 && c !== '其他') return;
+    var pct = grandTotal.qty > 0 ? Math.round(s.qty / grandTotal.qty * 100) + '%' : '0%';
+    html += '<tr><td style="font-weight:600">' + c + '</td>' +
+      '<td>' + s.qty + '</td>' +
+      '<td style="color:#34a853">' + s.completed + '</td>' +
+      '<td style="color:#1a73e8">' + s.online + '</td>' +
+      '<td style="color:#888">' + s.offline + '</td>' +
+      '<td>' + pct + '</td></tr>';
+  });
+  // 合计行
+  var totalPct = grandTotal.qty > 0 ? '100%' : '0%';
+  html += '<tr class="total-row"><td>合计</td>' +
+    '<td>' + grandTotal.qty + '</td>' +
+    '<td>' + grandTotal.completed + '</td>' +
+    '<td>' + grandTotal.online + '</td>' +
+    '<td>' + grandTotal.offline + '</td>' +
+    '<td>' + totalPct + '</td></tr>';
+  document.getElementById('dashboardBody').innerHTML = html;
 }
 
 // ========== 订单渲染 ==========
