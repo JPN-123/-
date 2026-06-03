@@ -312,7 +312,7 @@
           <th style="width:80px">已完结</th>
           <th style="width:80px">在线</th>
           <th style="width:80px">未上线</th>
-          <th style="width:80px">占比</th>
+          <th style="width:80px">完成率</th>
         </tr>
       </thead>
       <tbody id="dashboardBody"></tbody>
@@ -843,7 +843,7 @@ function renderDashboard() {
   categories.forEach(function(c) {
     var s = stats[c];
     if (s.qty === 0 && c !== '其他') return;
-    var pct = grandTotal.qty > 0 ? Math.round(s.qty / grandTotal.qty * 100) + '%' : '0%';
+    var pct = s.qty > 0 ? Math.round(s.completed / s.qty * 100) + '%' : '0%';
     html += '<tr><td style="font-weight:600">' + c + '</td>' +
       '<td>' + s.qty + '</td>' +
       '<td style="color:#34a853">' + s.completed + '</td>' +
@@ -852,7 +852,7 @@ function renderDashboard() {
       '<td>' + pct + '</td></tr>';
   });
   // 合计行
-  var totalPct = grandTotal.qty > 0 ? '100%' : '0%';
+  var totalPct = grandTotal.qty > 0 ? Math.round(grandTotal.completed / grandTotal.qty * 100) + '%' : '0%';
   html += '<tr class="total-row"><td>合计</td>' +
     '<td>' + grandTotal.qty + '</td>' +
     '<td>' + grandTotal.completed + '</td>' +
