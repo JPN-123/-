@@ -973,8 +973,8 @@ function renderFilterSummary(filtered) {
   var completePct = totalQty > 0 ? Math.round(totalCompleted / totalQty * 100) : 0;
   bar.style.display = 'flex';
   bar.innerHTML =
-    '<span>&#128269; 筛选结果：<b>' + total + '</b> 条订单</span>' +
-    '<span style="color:#333">&#128230; 订单数量：<b style="color:#1a73e8">' + totalQty + '</b></span>' +
+    '<span>&#128269; 筛选：<b>' + total + '</b> 单</span>' +
+    '<span style="color:#333">&#128230; 开单台数：<b style="color:#1a73e8">' + totalQty + '</b> 台</span>' +
     '<span style="color:#333">&#10003; 已完结：<b style="color:#34a853">' + totalCompleted + '</b></span>' +
     '<span style="color:#333">&#9654; 在线：<b style="color:#1a73e8">' + totalOnline + '</b></span>' +
     '<span style="color:#333">&#9711; 未上线：<b style="color:#888">' + totalOffline + '</b></span>' +
