@@ -828,9 +828,10 @@ function renderDashboard() {
     var completedQty = parseInt(o.completedQty) || 0;
     stats[cat].qty += qty;
     grandTotal.qty += qty;
-    // 已完结 = 所有订单的 completedQty 求和（与顶部完工数量口径一致）
-    stats[cat].completed += completedQty;
-    grandTotal.completed += completedQty;
+    // 已完结 = min(completedQty, qty)，防止历史累加超量
+    var cappedCompleted = Math.min(completedQty, qty);
+    stats[cat].completed += cappedCompleted;
+    grandTotal.completed += cappedCompleted;
     if (o.orderStatus === '排产中') {
       stats[cat].online += (qty - completedQty);
       grandTotal.online += (qty - completedQty);
