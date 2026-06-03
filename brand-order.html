@@ -862,7 +862,8 @@ function getWarehouseCategory(warehouse) {
   if (w.indexOf('汇创') !== -1) return '代工';
   return '其他';
 }
-function renderDashboard() {
+function renderDashboard(orders) {
+  var list = orders || brandOrders;
   var panel = document.getElementById('brandDashboard');
   if (!panel) return;
   panel.style.display = '';
@@ -872,7 +873,7 @@ function renderDashboard() {
     stats[c] = { qty:0, completed:0, actualCompleted:0, online:0, offline:0 };
   });
   var grandTotal = { qty:0, completed:0, actualCompleted:0, online:0, offline:0 };
-  brandOrders.forEach(function(o) {
+  list.forEach(function(o) {
     var cat = getWarehouseCategory(o.warehouse);
     var qty = parseInt(o.qty) || 0;
     var completedQty = parseInt(o.completedQty) || 0;
@@ -1031,6 +1032,7 @@ function renderOrders() {
   tbody.innerHTML = html;
   updateStats();
   renderFilterSummary(filtered);
+  renderDashboard(filtered);
 }
 
 function renderFilterSummary(filtered) {
