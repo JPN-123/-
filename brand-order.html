@@ -1038,6 +1038,8 @@ function renderOrders() {
 function renderFilterSummary(filtered) {
   var bar = document.getElementById('filterSummaryBar');
   if (!bar) return;
+  bar.style.display = 'none';
+  return;
   var total = filtered.length;
   if (total === 0) { bar.style.display = 'none'; return; }
   var totalQty = filtered.reduce(function(s, o) { return s + (parseInt(o.qty) || 0); }, 0);
