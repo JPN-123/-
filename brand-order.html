@@ -287,7 +287,7 @@
     <select id="filterWarn">
       <option value="">全部预警</option>
       <option value="normal">正常</option>
-      <option value="warn36">预警 36h+</option>
+      <option value="warn48">预警 48h+</option>
       <option value="warn72">预警 72h+</option>
     </select>
     <input type="text" id="filterSearch" placeholder="批量查询（多关键词用逗号/空格/换行分隔）" style="width:280px">
@@ -937,7 +937,7 @@ function getOrderTimeoutClass(o) {
   var hours = getOrderTimeoutHours(o);
   if (hours < 0) return '';
   if (hours >= 72) return 'row-danger';
-  if (hours >= 36) return 'row-warn';
+  if (hours >= 48) return 'row-warn';
   return '';
 }
 function renderOrders() {
@@ -971,8 +971,8 @@ function renderOrders() {
   if (warnFilter) {
     filtered = filtered.filter(function(x) {
       var h = getOrderTimeoutHours(x);
-      if (warnFilter === 'normal') return h >= 0 && h < 36;
-      if (warnFilter === 'warn36') return h >= 36 && h < 72;
+      if (warnFilter === 'normal') return h >= 0 && h < 48;
+      if (warnFilter === 'warn48') return h >= 48 && h < 72;
       if (warnFilter === 'warn72') return h >= 72;
       return true;
     });
@@ -1669,8 +1669,8 @@ function exportToExcel() {
   if (warnFilter) {
     filtered = filtered.filter(function(x) {
       var h = getOrderTimeoutHours(x);
-      if (warnFilter === 'normal') return h >= 0 && h < 36;
-      if (warnFilter === 'warn36') return h >= 36 && h < 72;
+      if (warnFilter === 'normal') return h >= 0 && h < 48;
+      if (warnFilter === 'warn48') return h >= 48 && h < 72;
       if (warnFilter === 'warn72') return h >= 72;
       return true;
     });
