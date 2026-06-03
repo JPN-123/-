@@ -672,6 +672,41 @@ function collectData() {
   };
 }
 
+// 一次性清理超量入库数据：completedQty 超过 qty 的订单
+function fixOverInbound() {
+  var fixed = 0;
+  brandOrders.forEach(function(o) {
+    var qty = parseInt(o.qty) || 0;
+    var completed = parseInt(o.completedQty) || 0;
+    if (completed > qty && qty > 0) {
+      // 1. 修正 completedQty
+      var excess = completed - qty;
+      o.completedQty = qty;
+      // 2. 从 inboundRecords 尾部删除多余流水，直到总量 <= qty
+      var orderRecs = inboundRecords.filter(function(r) { return r.orderNo === o.orderNo; });
+      orderRecs.sort(function(a, b) { return new Date(b.createTime) - new Date(a.createTime); }); // 新的在前
+      var runningTotal = completed;
+      for (var i = 0; i < orderRecs.length; i++) {
+        if (runningTotal <= qty) break;
+        var rec = orderRecs[i];
+        var recQty = rec.inboundQty || 0;
+        var idx = inboundRecords.findIndex(function(r) { return r.id === rec.id; });
+        if (idx !== -1) {
+          runningTotal -= recQty;
+          inboundRecords.splice(idx, 1);
+        }
+      }
+      // 3. 如果还有微小差异，确保 capped
+      if (runningTotal > qty) {
+        o.completedQty = qty; // 保险
+      }
+      fixed++;
+      console.log('[cleanup] ' + o.orderNo + ': ' + completed + '→' + o.completedQty + ' (删除' + excess + '台超量入库流水)');
+    }
+  });
+  return fixed;
+}
+
 async function loadData() {
   if (!GITHUB_TOKEN) {
     setSyncStatus('offline', '本地模式');
@@ -694,6 +729,13 @@ async function loadData() {
         const data = JSON.parse(file.content);
         applyData(data);
         dataLoaded = true;
+        // 自动清理超量入库数据（一次性），如有修正则保存
+        var fixedCount = fixOverInbound();
+        if (fixedCount > 0) {
+          console.log('[cleanup] 共修正 ' + fixedCount + ' 条超量订单');
+          await save();
+          showToast('已自动修正 ' + fixedCount + ' 条超量入库数据并保存');
+        }
         setSyncStatus('online', '已连接');
       } else { await createNewGist(); }
     } else { await createNewGist(); }
