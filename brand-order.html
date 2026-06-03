@@ -260,7 +260,9 @@
 
 <div class="toolbar" id="appToolbar" style="display:none">
   <div class="toolbar-left">
-    <input type="date" id="filterDate" placeholder="日期">
+    <input type="date" id="filterDateFrom" title="开始日期">
+    <span style="color:#888;margin:0 4px">~</span>
+    <input type="date" id="filterDateTo" title="结束日期">
     <select id="filterStatus">
       <option value="">全部线体</option>
       <option value="A">A</option>
@@ -938,7 +940,8 @@ function getOrderTimeoutClass(o) {
   return '';
 }
 function renderOrders() {
-  var dateFilter = document.getElementById('filterDate').value;
+  var dateFrom = document.getElementById('filterDateFrom').value;
+  var dateTo = document.getElementById('filterDateTo').value;
   var lineFilter = document.getElementById('filterStatus').value;
   var orderStatusFilter = document.getElementById('filterOrderStatus').value;
   var warnFilter = document.getElementById('filterWarn').value;
@@ -948,8 +951,20 @@ function renderOrders() {
   var emptyState = document.getElementById('emptyState');
   var table = document.querySelector('#tableContainer table');
 
+  function normalizeDate(d) {
+    if (!d) return '';
+    return d.replace(/\//g, '-');
+  }
   var filtered = brandOrders.slice();
-  if (dateFilter) filtered = filtered.filter(function(x) { return x.date === dateFilter; });
+  if (dateFrom || dateTo) {
+    filtered = filtered.filter(function(x) {
+      var d = normalizeDate(x.date || '');
+      if (!d) return false;
+      if (dateFrom && d < dateFrom) return false;
+      if (dateTo && d > dateTo) return false;
+      return true;
+    });
+  }
   if (lineFilter) filtered = filtered.filter(function(x) { return x.line === lineFilter; });
   if (orderStatusFilter) filtered = filtered.filter(function(x) { return x.orderStatus === orderStatusFilter; });
   if (warnFilter) {
@@ -1060,7 +1075,8 @@ function renderFilterSummary(filtered) {
 }
 
 // ========== 筛选监听 ==========
-document.getElementById('filterDate').addEventListener('change', renderOrders);
+document.getElementById('filterDateFrom').addEventListener('change', renderOrders);
+document.getElementById('filterDateTo').addEventListener('change', renderOrders);
 document.getElementById('filterStatus').addEventListener('change', renderOrders);
 document.getElementById('filterOrderStatus').addEventListener('change', renderOrders);
 document.getElementById('filterWarn').addEventListener('change', renderOrders);
@@ -1629,14 +1645,23 @@ function exportInboundHistory() {
 }
 
 function exportToExcel() {
-  var dateFilter = document.getElementById('filterDate').value;
+  var dateFrom = document.getElementById('filterDateFrom').value;
+  var dateTo = document.getElementById('filterDateTo').value;
   var lineFilter = document.getElementById('filterStatus').value;
   var orderStatusFilter = document.getElementById('filterOrderStatus').value;
   var warnFilter = document.getElementById('filterWarn').value;
   var searchRaw = document.getElementById('filterSearch').value.trim().toLowerCase();
   var searchTerms = searchRaw ? searchRaw.split(/[,，\s\n]+/).filter(function(s){ return s.length>0; }) : [];
   var filtered = brandOrders.slice();
-  if (dateFilter) filtered = filtered.filter(function(x) { return x.date === dateFilter; });
+  if (dateFrom || dateTo) {
+    filtered = filtered.filter(function(x) {
+      var d = (x.date || '').replace(/\//g, '-');
+      if (!d) return false;
+      if (dateFrom && d < dateFrom) return false;
+      if (dateTo && d > dateTo) return false;
+      return true;
+    });
+  }
   if (lineFilter) filtered = filtered.filter(function(x) { return x.line === lineFilter; });
   if (orderStatusFilter) filtered = filtered.filter(function(x) { return x.orderStatus === orderStatusFilter; });
   if (warnFilter) {
