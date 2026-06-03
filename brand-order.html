@@ -655,6 +655,12 @@ function applyData(data) {
       o.mesStatus = '已入库';
       o.orderStatus = '完工';
     }
+    // 封顶：completedQty 不超过 qty，修复历史累加超量脏数据
+    var finalQty = parseInt(o.qty) || 0;
+    var finalCompleted = parseInt(o.completedQty) || 0;
+    if (finalCompleted > finalQty && finalQty > 0) {
+      o.completedQty = finalQty;
+    }
   });
 }
 
