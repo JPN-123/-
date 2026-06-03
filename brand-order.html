@@ -805,17 +805,33 @@ function showApp() {
 
 function updateStats() {
   var total = brandOrders.length;
-  var totalQty = brandOrders.reduce(function(s, o) { return s + (o.qty || 0); }, 0);
-  var completed = brandOrders.reduce(function(s, o) { return s + (o.completedQty || 0); }, 0);
-  var onlineOrders = brandOrders.filter(function(o) { return o.orderStatus === '排产中'; });
-  // 在线 = 排产中订单的总数量 - 已完工数量（即还在线上生产的）
-  var onlineQty = onlineOrders.reduce(function(s, o) { return s + (o.qty || 0); }, 0) - onlineOrders.reduce(function(s, o) { return s + (o.completedQty || 0); }, 0);
-  var offlineOrders = brandOrders.filter(function(o) { return o.orderStatus === '未备料' || o.orderStatus === '已备料'; });
-  var offlineQty = offlineOrders.reduce(function(s, o) { return s + (o.qty || 0); }, 0) - offlineOrders.reduce(function(s, o) { return s + (o.completedQty || 0); }, 0);
+  var totalQty = 0;
+  var actualCompleted = 0;
+  var displayCompleted = 0;
+  var onlineQty = 0;
+  var offlineQty = 0;
+  brandOrders.forEach(function(o) {
+    var qty = parseInt(o.qty) || 0;
+    var completedQty = parseInt(o.completedQty) || 0;
+    totalQty += qty;
+    var capped = Math.min(completedQty, qty);
+    actualCompleted += capped;
+    var remaining = Math.max(0, qty - completedQty);
+    if (o.orderStatus === '排产中' || o.orderStatus === '首件已好') {
+      onlineQty += remaining;
+      displayCompleted += capped;
+    } else if (o.orderStatus === '未备料' || o.orderStatus === '已备料') {
+      offlineQty += remaining;
+      displayCompleted += capped;
+    } else {
+      // 完工、撤单等关闭状态：剩余量补入已完结
+      displayCompleted += qty;
+    }
+  });
   document.getElementById('statTotal').textContent = total;
   document.getElementById('statPending').textContent = totalQty;
-  document.getElementById('statProcessing').textContent = completed;
-  document.getElementById('statCompleted').textContent = totalQty > 0 ? Math.round(completed / totalQty * 100) + '%' : '0%';
+  document.getElementById('statProcessing').textContent = displayCompleted;
+  document.getElementById('statCompleted').textContent = totalQty > 0 ? Math.round(actualCompleted / totalQty * 100) + '%' : '0%';
   document.getElementById('statOnline').textContent = onlineQty;
   document.getElementById('statOffline').textContent = offlineQty;
   document.querySelector('#headerStats .stat-item:nth-child(2) .label').textContent = '总数量';
