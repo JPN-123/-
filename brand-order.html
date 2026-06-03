@@ -302,6 +302,7 @@
 <!-- BRAND订单状态看板 -->
 <div class="dashboard-panel" id="brandDashboard" style="display:none">
   <div class="dashboard-title">&#128202; BRAND订单状态看板</div>
+  <div id="dupOrderAlert" style="display:none;margin-bottom:10px;padding:8px 12px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;font-size:13px;color:#856404;line-height:1.8"></div>
   <div class="dashboard-table-wrap">
     <table class="dashboard-table">
       <thead>
@@ -768,6 +769,33 @@ function updateStats() {
   document.querySelector('#headerStats .stat-item:nth-child(3) .label').textContent = '完工数量';
   document.querySelector('#headerStats .stat-item:nth-child(4) .label').textContent = '完成率';
   renderDashboard();
+  checkDuplicateOrders();
+}
+
+// 检测重复单号并在看板下方显示警告
+function checkDuplicateOrders() {
+  var seen = {}, dups = [];
+  brandOrders.forEach(function(o) {
+    if (!o.orderNo) return;
+    if (seen[o.orderNo]) {
+      if (!dups.find(function(d) { return d.no === o.orderNo; })) {
+        dups.push({ no: o.orderNo, count: 0 });
+      }
+      dups.find(function(d) { return d.no === o.orderNo; }).count++;
+    } else {
+      seen[o.orderNo] = true;
+    }
+  });
+  var alertEl = document.getElementById('dupOrderAlert');
+  if (!alertEl) return;
+  if (dups.length === 0) {
+    alertEl.style.display = 'none';
+    alertEl.innerHTML = '';
+  } else {
+    alertEl.style.display = '';
+    alertEl.innerHTML = '⚠️ 发现 <b>' + dups.length + '</b> 个重复单号，请核查：' +
+      dups.map(function(d) { return '<span style="background:#fff3cd;padding:2px 6px;border-radius:4px;margin:0 3px">' + d.no + '（重复' + (d.count+1) + '次）</span>'; }).join('');
+  }
 }
 
 // ========== BRAND订单状态看板 ==========
@@ -1119,6 +1147,22 @@ function submitOrder() {
   var editId = document.getElementById('orderEditId').value;
   var rows = document.querySelectorAll('#orderModalBody tr');
   if (rows.length === 0) { showToast('请至少添加一行'); return; }
+
+  // 新增时：检查单号是否已存在（防重复）
+  if (!editId) {
+    var dupNos = [];
+    rows.forEach(function(row) {
+      var no = row.querySelector('.o-orderNo').value.trim();
+      if (!no) return;
+      var exists = brandOrders.find(function(x) { return x.orderNo === no; });
+      if (exists) dupNos.push(no);
+    });
+    if (dupNos.length > 0) {
+      showToast('❌ 以下单号已存在，不能重复新增：' + dupNos.join('、'));
+      alert('以下订单单号已存在，请检查后重试：\n\n' + dupNos.join('\n'));
+      return;
+    }
+  }
 
   rows.forEach(function(row) {
     var o = {};
