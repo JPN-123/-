@@ -320,6 +320,9 @@
   </div>
 </div>
 
+<!-- 筛选结果汇总条 -->
+<div id="filterSummaryBar" style="display:none;margin:0 24px 8px;padding:8px 14px;background:#e8f0fe;border:1px solid #c5d3f5;border-radius:6px;font-size:13px;color:#1a73e8;display:flex;flex-wrap:wrap;gap:16px;align-items:center"></div>
+
 <div class="table-container" id="tableContainer" style="display:none">
   <table>
     <thead>
@@ -916,6 +919,8 @@ function renderOrders() {
     tbody.innerHTML = '';
     table.style.display = 'none';
     emptyState.style.display = '';
+    var bar = document.getElementById('filterSummaryBar');
+    if (bar) bar.style.display = 'none';
     updateStats();
     return;
   }
@@ -951,6 +956,29 @@ function renderOrders() {
   });
   tbody.innerHTML = html;
   updateStats();
+  renderFilterSummary(filtered);
+}
+
+function renderFilterSummary(filtered) {
+  var bar = document.getElementById('filterSummaryBar');
+  if (!bar) return;
+  var total = filtered.length;
+  if (total === 0) { bar.style.display = 'none'; return; }
+  var totalQty = filtered.reduce(function(s, o) { return s + (parseInt(o.qty) || 0); }, 0);
+  var totalCompleted = filtered.reduce(function(s, o) { return s + (parseInt(o.completedQty) || 0); }, 0);
+  var totalOnline = filtered.filter(function(o) { return o.orderStatus === '排产中'; })
+    .reduce(function(s, o) { return s + ((parseInt(o.qty)||0) - (parseInt(o.completedQty)||0)); }, 0);
+  var totalOffline = filtered.filter(function(o) { return o.orderStatus === '未备料' || o.orderStatus === '已备料'; })
+    .reduce(function(s, o) { return s + (parseInt(o.qty) || 0); }, 0);
+  var completePct = totalQty > 0 ? Math.round(totalCompleted / totalQty * 100) : 0;
+  bar.style.display = 'flex';
+  bar.innerHTML =
+    '<span>&#128269; 筛选结果：<b>' + total + '</b> 条订单</span>' +
+    '<span style="color:#333">&#128230; 订单数量：<b style="color:#1a73e8">' + totalQty + '</b></span>' +
+    '<span style="color:#333">&#10003; 已完结：<b style="color:#34a853">' + totalCompleted + '</b></span>' +
+    '<span style="color:#333">&#9654; 在线：<b style="color:#1a73e8">' + totalOnline + '</b></span>' +
+    '<span style="color:#333">&#9711; 未上线：<b style="color:#888">' + totalOffline + '</b></span>' +
+    '<span style="color:#333">&#128200; 完成率：<b style="color:#e67e22">' + completePct + '%</b></span>';
 }
 
 // ========== 筛选监听 ==========
