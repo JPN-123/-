@@ -867,32 +867,42 @@ function renderDashboard() {
   var categories = ['代运营','定制机','品牌机','华小攀','纽派','代工','其他'];
   var stats = {};
   categories.forEach(function(c) {
-    stats[c] = { qty:0, completed:0, online:0, offline:0 };
+    stats[c] = { qty:0, completed:0, actualCompleted:0, online:0, offline:0 };
   });
-  var grandTotal = { qty:0, completed:0, online:0, offline:0 };
+  var grandTotal = { qty:0, completed:0, actualCompleted:0, online:0, offline:0 };
   brandOrders.forEach(function(o) {
     var cat = getWarehouseCategory(o.warehouse);
     var qty = parseInt(o.qty) || 0;
     var completedQty = parseInt(o.completedQty) || 0;
     stats[cat].qty += qty;
     grandTotal.qty += qty;
-    // 已完结 = min(completedQty, qty)，防止历史累加超量
-    var cappedCompleted = Math.min(completedQty, qty);
-    stats[cat].completed += cappedCompleted;
-    grandTotal.completed += cappedCompleted;
-    if (o.orderStatus === '排产中') {
-      stats[cat].online += (qty - completedQty);
-      grandTotal.online += (qty - completedQty);
+    // 实际完工量 = min(completedQty, qty)，用于完成率（防止历史累加超量）
+    var actualCompleted = Math.min(completedQty, qty);
+    stats[cat].actualCompleted += actualCompleted;
+    grandTotal.actualCompleted += actualCompleted;
+    // 剩余未完工量（非负）
+    var remaining = Math.max(0, qty - completedQty);
+    // 已完结显示值：默认等于实际完工量；已关闭订单（完工/撤单）的剩余量也归入已完结，确保已完结+在线+未上线=数量
+    var displayCompleted = actualCompleted;
+    if (o.orderStatus === '排产中' || o.orderStatus === '首件已好') {
+      stats[cat].online += remaining;
+      grandTotal.online += remaining;
     } else if (o.orderStatus === '未备料' || o.orderStatus === '已备料') {
-      stats[cat].offline += (qty - completedQty);
-      grandTotal.offline += (qty - completedQty);
+      stats[cat].offline += remaining;
+      grandTotal.offline += remaining;
+    } else {
+      // 完工、撤单等其他已关闭状态：剩余量补到已完结，保证合计平衡
+      displayCompleted += remaining;
     }
+    stats[cat].completed += displayCompleted;
+    grandTotal.completed += displayCompleted;
   });
   var html = '';
   categories.forEach(function(c) {
     var s = stats[c];
     if (s.qty === 0 && c !== '其他') return;
-    var pct = s.qty > 0 ? Math.round(s.completed / s.qty * 100) + '%' : '0%';
+    // 完成率以实际完工量计算，撤单等不会虚高
+    var pct = s.qty > 0 ? Math.round(s.actualCompleted / s.qty * 100) + '%' : '0%';
     html += '<tr><td style="font-weight:600">' + c + '</td>' +
       '<td>' + s.qty + '</td>' +
       '<td style="color:#34a853">' + s.completed + '</td>' +
@@ -901,7 +911,7 @@ function renderDashboard() {
       '<td>' + pct + '</td></tr>';
   });
   // 合计行
-  var totalPct = grandTotal.qty > 0 ? Math.round(grandTotal.completed / grandTotal.qty * 100) + '%' : '0%';
+  var totalPct = grandTotal.qty > 0 ? Math.round(grandTotal.actualCompleted / grandTotal.qty * 100) + '%' : '0%';
   html += '<tr class="total-row"><td>合计</td>' +
     '<td>' + grandTotal.qty + '</td>' +
     '<td>' + grandTotal.completed + '</td>' +
@@ -1014,12 +1024,31 @@ function renderFilterSummary(filtered) {
   var total = filtered.length;
   if (total === 0) { bar.style.display = 'none'; return; }
   var totalQty = filtered.reduce(function(s, o) { return s + (parseInt(o.qty) || 0); }, 0);
-  var totalCompleted = filtered.reduce(function(s, o) { return s + (parseInt(o.completedQty) || 0); }, 0);
-  var totalOnline = filtered.filter(function(o) { return o.orderStatus === '排产中'; })
-    .reduce(function(s, o) { return s + ((parseInt(o.qty)||0) - (parseInt(o.completedQty)||0)); }, 0);
+  var totalCompleted = filtered.reduce(function(s, o) {
+    var qty = parseInt(o.qty) || 0;
+    var completed = parseInt(o.completedQty) || 0;
+    // 已关闭订单（完工/撤单）按全部数量算已完结，其他按实际完工量
+    if (o.orderStatus === '完工' || o.orderStatus === '撤单') {
+      return s + qty;
+    }
+    return s + Math.min(completed, qty);
+  }, 0);
+  var totalActualCompleted = filtered.reduce(function(s, o) {
+    return s + Math.min((parseInt(o.completedQty) || 0), (parseInt(o.qty) || 0));
+  }, 0);
+  var totalOnline = filtered.filter(function(o) { return o.orderStatus === '排产中' || o.orderStatus === '首件已好'; })
+    .reduce(function(s, o) {
+      var qty = parseInt(o.qty) || 0;
+      var completed = parseInt(o.completedQty) || 0;
+      return s + Math.max(0, qty - completed);
+    }, 0);
   var totalOffline = filtered.filter(function(o) { return o.orderStatus === '未备料' || o.orderStatus === '已备料'; })
-    .reduce(function(s, o) { return s + (parseInt(o.qty) || 0); }, 0);
-  var completePct = totalQty > 0 ? Math.round(totalCompleted / totalQty * 100) : 0;
+    .reduce(function(s, o) {
+      var qty = parseInt(o.qty) || 0;
+      var completed = parseInt(o.completedQty) || 0;
+      return s + Math.max(0, qty - completed);
+    }, 0);
+  var completePct = totalQty > 0 ? Math.round(totalActualCompleted / totalQty * 100) : 0;
   bar.style.display = 'flex';
   bar.innerHTML =
     '<span>&#128269; 筛选：<b>' + total + '</b> 单</span>' +
