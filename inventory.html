@@ -111,7 +111,8 @@
   .modal-overlay.active { display: flex; }
   .modal {
     background: #fff; border-radius: 12px; padding: 24px;
-    width: 480px; max-width: 95vw; max-height: 95vh; overflow: hidden auto;
+    width: 480px; max-width: 95vw; max-height: 90vh;
+    display: flex; flex-direction: column;
     box-shadow: 0 8px 32px rgba(0,0,0,0.2);
   }
   .modal h2 { font-size: 18px; margin-bottom: 16px; color: #1a73e8; }
@@ -121,7 +122,7 @@
   .form-group input, .form-group select { width: 100%; }
   .form-row { display: flex; gap: 12px; }
   .form-row .form-group { flex: 1; }
-  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; flex-shrink: 0; }
 
   .flow-table { font-size: 12px; }
   .batch-table { width: 100%; max-width: 100%; font-size: 12px; border-collapse: collapse; table-layout: fixed; box-sizing: border-box; overflow-x: hidden; }
@@ -130,7 +131,7 @@
   .batch-table td:first-child { white-space: normal; word-break: break-all; }
   .batch-table tr:hover { background: #f8f9ff; }
   .batch-table .qty-input { width: 60px !important; padding: 2px 4px !important; font-size: 13px !important; box-sizing: border-box; }
-  #batchInList, #batchOutList { max-height: 60vh; overflow: hidden auto; width: 100%; box-sizing: border-box; }
+  #batchInList, #batchOutList { flex: 1; overflow: hidden auto; width: 100%; box-sizing: border-box; min-height: 80px; }
   .flow-in { color: #34a853; font-weight: 600; }
   .flow-out { color: #ea4335; font-weight: 600; }
 
