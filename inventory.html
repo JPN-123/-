@@ -538,6 +538,7 @@
 <div class="modal-overlay" id="batchInModal">
   <div class="modal" style="width:640px">
     <h2 style="color:#34a853">批量领入登记</h2>
+    <p style="font-size:12px;color:#999;margin-bottom:12px">提交后需由管理员确认，库存不会立即增加。</p>
     <div class="form-group">
       <label>操作日期</label>
       <input type="date" id="inDate">
@@ -599,6 +600,7 @@
 <div class="modal-overlay" id="quickInModal">
   <div class="modal">
     <h2 style="color:#34a853" id="quickInTitle">领入</h2>
+    <p style="font-size:12px;color:#999;margin-bottom:12px">提交后需由管理员确认，库存不会立即增加。</p>
     <input type="hidden" id="quickInId">
     <div class="form-group">
       <label>领入数量 <span class="required">*</span></label>
@@ -686,6 +688,18 @@
     <div id="pendingList"></div>
     <div class="modal-actions">
       <button class="btn-outline" onclick="closeModal('pendingModal')">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 待确认领入模态框 -->
+<div class="modal-overlay" id="pendingInModal">
+  <div class="modal" style="width:640px">
+    <h2 style="color:#2e7d32">待确认领入</h2>
+    <p style="font-size:12px;color:#999;margin-bottom:12px">以下领入申请等待确认，点击「确认领入」后库存将实际增加。</p>
+    <div id="pendingInList"></div>
+    <div class="modal-actions">
+      <button class="btn-outline" onclick="closeModal('pendingInModal')">关闭</button>
     </div>
   </div>
 </div>
@@ -845,6 +859,7 @@ let history = [];
 let persons = [];
 let confirmers = [];
 let pendingOuts = [];
+let pendingIns = [];
 let users = [];
 let currentUser = null; // { username, role }
 let sortField = 'id';
@@ -965,7 +980,7 @@ async function createNewGist() {
 function getDefaultData() {
   return {
     items: [], history: [], persons: [], confirmers: [],
-    pendingOuts: [], nextId: 1001, nextOutId: 1,
+    pendingOuts: [], pendingIns: [], nextId: 1001, nextOutId: 1,
     productionPlans: [], dailyReports: [], brandOrders: [],
     users: [
       { username: 'admin', password: '8888', role: 'super' }
@@ -980,6 +995,7 @@ function applyData(data) {
   persons = data.persons || [];
   confirmers = data.confirmers || [];
   pendingOuts = data.pendingOuts || [];
+  pendingIns = data.pendingIns || [];
   nextId = data.nextId || 1001;
   nextOutId = data.nextOutId || 1;
   users = data.users || [];
@@ -993,7 +1009,7 @@ function applyData(data) {
 
 function collectData() {
   return {
-    items, history, persons, confirmers, pendingOuts, nextId, nextOutId, users,
+    items, history, persons, confirmers, pendingOuts, pendingIns, nextId, nextOutId, users,
     productionPlans, dailyReports, brandOrders,
     _appVersion: 9
   };
@@ -1094,6 +1110,10 @@ function renderToolbar() {
   if (hasRole('admin')) {
     leftHtml += '<button class="btn-success" onclick="openBatchInModal()">批量领入</button>';
   }
+  // 待确认领入（管理用户及以上）
+  if (hasRole('admin')) {
+    leftHtml += '<button class="btn-success btn-pending-badge" onclick="showPendingInList()" style="background:#2e7d32">待确认领入<span class="badge-count" id="pendingInBadge" style="display:none">0</span></button>';
+  }
   // 批量领出（管理用户及以上）
   if (hasRole('admin')) {
   leftHtml += '<button class="btn-warning" onclick="openBatchOutModal()">批量领出</button>';
@@ -1170,6 +1190,13 @@ function updatePendingBadge() {
   if (count > 0) { badge.style.display = 'inline'; badge.textContent = count; }
   else { badge.style.display = 'none'; }
   stat.textContent = count;
+}
+function updatePendingInBadge() {
+  const count = pendingIns.length;
+  const badge = document.getElementById('pendingInBadge');
+  if (!badge) return;
+  if (count > 0) { badge.style.display = 'inline'; badge.textContent = count; }
+  else { badge.style.display = 'none'; }
 }
 
 function showToast(msg) {
@@ -1288,17 +1315,23 @@ async function submitBatchIn() {
   const date = document.getElementById('inDate').value;
   const remark = document.getElementById('inRemark').value.trim();
   const person = (currentUser && currentUser.username) ? currentUser.username : '';
-  let count = 0;
+  let inList = [];
   items.forEach(item => {
     const qty = parseInt(document.getElementById('in_' + item.id).value) || 0;
     if (qty > 0) {
-      item.totalIn += qty; item.stock += qty;
-      history.push({ date, itemId: item.id, itemName: item.name, type: 'in', qty, stockAfter: item.stock, person, confirmer: '', line: '', remark: remark || '领入', status: 'confirmed' });
-      count++;
+      inList.push({ itemId: item.id, itemName: item.name, qty, unit: item.unit });
     }
   });
-  await save(); closeModal('batchInModal'); renderTable();
-  showToast('已领入 ' + count + ' 项辅料');
+  if (inList.length === 0) { showToast('请输入至少一个领入数量'); return; }
+  const order = {
+    id: nextOutId++,
+    date, person, remark,
+    items: inList,
+    createdAt: Date.now()
+  };
+  pendingIns.push(order);
+  await save(); closeModal('batchInModal'); renderTable(); updatePendingInBadge();
+  showToast('已提交 ' + inList.length + ' 项领入申请，等待确认');
 }
 
 // ========== 批量领出（所有用户）==========
@@ -1369,10 +1402,15 @@ async function submitQuickIn() {
   if (qty <= 0) { showToast('请输入有效数量'); return; }
   const item = items.find(i => i.id === id);
   if (!item) return;
-  item.totalIn += qty; item.stock += qty;
-  history.push({ date, itemId: item.id, itemName: item.name, type: 'in', qty, stockAfter: item.stock, person, confirmer: '', line: '', remark: remark || '领入', status: 'confirmed' });
-  await save(); closeModal('quickInModal'); renderTable();
-  showToast('领入成功：' + item.name + ' x ' + qty);
+  const order = {
+    id: nextOutId++,
+    date, person, remark,
+    items: [{ itemId: item.id, itemName: item.name, qty, unit: item.unit }],
+    createdAt: Date.now()
+  };
+  pendingIns.push(order);
+  await save(); closeModal('quickInModal'); renderTable(); updatePendingInBadge();
+  showToast('已提交领入申请：' + item.name + ' x ' + qty + '，等待确认');
 }
 
 // ========== 快速领出（所有用户）==========
@@ -1490,7 +1528,74 @@ function confirmShip(orderId) {
   });
 }
 
-// ========== 删除辅料（超级用户）==========
+// ========== 待确认领入 ==========
+function showPendingInList() { renderPendingInList(); document.getElementById('pendingInModal').classList.add('active'); }
+
+function renderPendingInList() {
+  const container = document.getElementById('pendingInList');
+  if (pendingIns.length === 0) { container.innerHTML = '<div class="empty" style="padding:24px"><p>暂无待确认的领入申请</p></div>'; return; }
+  let html = '';
+  pendingIns.forEach(order => {
+    const time = new Date(order.createdAt).toLocaleString('zh-CN');
+    let itemsHtml = order.items.map(it => it.itemName + ' x ' + it.qty + ' ' + it.unit).join('、');
+    html += '<div class="pending-card"><div class="pending-card-header"><div><span class="badge-pending">待确认</span><span style="font-size:12px;color:#999;margin-left:8px">' + time + '</span></div><div style="display:flex;gap:6px;align-items:center;"><span class="person-tag">' + (order.person || '—') + '</span></div></div>'
+      + '<div class="pending-card-items">' + itemsHtml + (order.remark ? ' | ' + order.remark : '') + '</div>'
+      + '<div style="font-size:12px;color:#999;margin-bottom:8px">日期：' + order.date + '</div>'
+      + '<div class="pending-card-actions">'
+      + '<button class="btn-outline" style="font-size:12px;padding:4px 12px" onclick="cancelPendingIn(' + order.id + ')">取消申请</button>'
+      + '<button class="btn-success" style="font-size:12px;padding:4px 12px" onclick="confirmIn(' + order.id + ')">确认领入</button>'
+      + '</div></div>';
+  });
+  container.innerHTML = html;
+}
+
+function cancelPendingIn(orderId) {
+  const order = pendingIns.find(o => o.id === orderId);
+  if (!order) return;
+  showConfirm('del', '取消领入申请', '<div class="confirm-detail-row"><span class="label">申请人</span><span class="value">' + (order.person || '—') + '</span></div>', '取消', 'btn-danger', '', async function() {
+    pendingIns = pendingIns.filter(o => o.id !== orderId);
+    await save(); renderPendingInList(); renderTable(); updatePendingInBadge();
+    showToast('已取消领入申请');
+  });
+}
+
+function confirmIn(orderId) {
+  const order = pendingIns.find(o => o.id === orderId);
+  if (!order) return;
+
+  let itemsDetail = order.items.map(it => {
+    const item = items.find(i => i.id === it.itemId);
+    const afterStock = item ? item.stock + it.qty : '?';
+    return '<div class="confirm-detail-row"><span>' + it.itemName + '</span><span style="color:#34a853">+' + it.qty + ' ' + it.unit + '（入库后 ' + afterStock + '）</span></div>';
+  }).join('');
+
+  let detailHtml = '<div class="confirm-detail-row"><span class="label">申请人</span><span class="value">' + (order.person || '—') + '</span></div>';
+  detailHtml += '<div class="confirm-detail-row"><span class="label">日期</span><span class="value">' + order.date + '</span></div>';
+  if (order.remark) detailHtml += '<div class="confirm-detail-row"><span class="label">备注</span><span class="value">' + order.remark + '</span></div>';
+  detailHtml += '<div style="margin-top:8px;border-top:1px solid #eee;padding-top:8px;font-weight:600;font-size:12px;color:#666;margin-bottom:4px;">入库明细：</div>';
+  detailHtml += itemsDetail;
+
+  let defaultConfirmer = currentUser ? currentUser.username : '';
+  let extraHtml = '<div style="text-align:left;margin-bottom:0"><label style="display:block;font-size:13px;font-weight:500;margin-bottom:4px;color:#555">请输入确认人姓名</label><input type="text" id="confirmInConfirmer" value="' + defaultConfirmer + '" placeholder="输入确认人姓名（可选）" list="confirmerDatalist2" style="width:100%;border:1px solid #d0d0d0;border-radius:6px;padding:7px 12px"><datalist id="confirmerDatalist2"></datalist></div>';
+  // 填充 confirmer datalist
+  const dl2 = document.getElementById('confirmerDatalist2');
+  if (dl2) { let dh=''; confirmers.forEach(p => { dh += '<option value="' + p + '">'; }); dl2.innerHTML = dh; }
+
+  showConfirm('confirm', '确认领入', detailHtml, '✅ 确认领入', 'btn-success', extraHtml, async function() {
+    const confirmerName = ((document.getElementById('confirmInConfirmer') || {}).value || '').trim();
+    order.items.forEach(it => {
+      const item = items.find(i => i.id === it.itemId);
+      if (item) {
+        item.totalIn += it.qty; item.stock += it.qty;
+        history.push({ date: order.date, itemId: it.itemId, itemName: it.itemName, type: 'in', qty: it.qty, stockAfter: item.stock, person: order.person, confirmer: confirmerName, line: '', remark: order.remark || '领入', status: 'confirmed' });
+      }
+    });
+    if (confirmerName) addConfirmer(confirmerName);
+    pendingIns = pendingIns.filter(o => o.id !== orderId);
+    await save(); renderTable(); updatePendingInBadge(); renderPendingInList();
+    showToast('已确认领入' + (confirmerName ? '，确认人：' + confirmerName : ''));
+  });
+}
 function deleteItem(id) {
   if (!hasRole('super')) { showToast('仅超级用户可以删除辅料'); return; }
   const item = items.find(i => i.id === id);
@@ -1564,6 +1669,7 @@ function renderTable() {
   }
   updateStats();
   updatePendingBadge();
+  updatePendingInBadge();
 }
 
 function updateStats() {
