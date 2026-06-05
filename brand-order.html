@@ -874,8 +874,8 @@ function getWarehouseCategory(warehouse) {
   if (w.indexOf('代运营') !== -1 || w.indexOf('代运') !== -1 || w.indexOf('运营') !== -1 || w.indexOf('七彩虹') !== -1) return '代运营';
   if (w.indexOf('定制机') !== -1) return '定制机';
   if (w.indexOf('品牌机') !== -1 || w.indexOf('品牌仓') !== -1) return '品牌机';
-  // 华小攀：含"华小"或"国控仓"
-  if (w.indexOf('华小') !== -1 || w.indexOf('国控仓') !== -1) return '华小攀';
+  // 华小攀：含"华小"、"国控仓"、"鸿星"、"蒙闪"、"物料仓"
+  if (w.indexOf('华小') !== -1 || w.indexOf('国控仓') !== -1 || w.indexOf('鸿星') !== -1 || w.indexOf('蒙闪') !== -1 || w.indexOf('物料仓') !== -1) return '华小攀';
   if (w.indexOf('纽派') !== -1) return '纽派';
   if (w.indexOf('汇创') !== -1) return '代工';
   return '其他';
