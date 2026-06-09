@@ -1410,6 +1410,15 @@ function parseInboundPaste() {
   if (!text) { showToast('请先粘贴数据'); return; }
   var lines = text.split(/\r?\n/).filter(function(l) { return l.trim(); });
   var matched = 0, notFound = [], skipped = 0;
+  // 建立 orderNo → 未被匹配的订单列表（支持同单号多条）
+  var poolMap = {};
+  brandOrders.forEach(function(o) {
+    var key = (o.orderNo || '').toLowerCase();
+    if (!poolMap[key]) poolMap[key] = [];
+    poolMap[key].push(o);
+  });
+  // 已用索引（每条粘贴行消费一个匹配）
+  var usedIdx = {};
   lines.forEach(function(line) {
     var parts = line.split('\t');
     if (parts.length < 7) { skipped++; return; }
@@ -1418,13 +1427,12 @@ function parseInboundPaste() {
     var inboundQty = parseInt(parts[6]) || 0;
     var transferNo = (parts[9] || '').trim();
     if (!orderNo) { skipped++; return; }
-    // 匹配订单（优先精确匹配单号）
-    var order = brandOrders.find(function(o) { return o.orderNo === orderNo; });
-    if (!order) {
-      // 尝试模糊匹配（忽略大小写）
-      order = brandOrders.find(function(o) { return o.orderNo && o.orderNo.toLowerCase() === orderNo.toLowerCase(); });
-    }
+    var key = orderNo.toLowerCase();
+    var pool = poolMap[key] || [];
+    if (!usedIdx[key]) usedIdx[key] = 0;
+    var order = pool[usedIdx[key]];
     if (order) {
+      usedIdx[key]++;
       order._inboundSelected = true;
       order._inboundQty = inboundQty > 0 ? String(inboundQty) : (order._inboundQty || '');
       if (transferNo) order._inboundTransferNo = transferNo;
@@ -1477,16 +1485,16 @@ function renderInboundQuery() {
   filtered.forEach(function(o) {
     var checked = o._inboundSelected ? 'checked' : '';
     var rowStyle = o._inboundSelected ? ' style="background:#e8f5e9"' : '';
-    var safeOrderNo = escHtml(o.orderNo || '');
-    html += '<tr' + rowStyle + ' data-order-no="' + safeOrderNo + '">' +
-      '<td style="text-align:center"><input type="checkbox" class="i-check" ' + checked + ' onchange="toggleInboundSelect(\'' + safeOrderNo + '\',this.checked)"></td>' +
+    var safeId = escHtml(String(o.id || o.orderNo || ''));
+    html += '<tr' + rowStyle + ' data-order-id="' + safeId + '">' +
+      '<td style="text-align:center"><input type="checkbox" class="i-check" ' + checked + ' onchange="toggleInboundSelectById(\'' + safeId + '\',this.checked)"></td>' +
       '<td style="font-weight:' + (o._inboundSelected?'700':'400') + ';color:' + (o._inboundSelected?'#1a73e8':'inherit') + '">' + escHtml(o.orderNo || '-') + '</td>' +
       '<td>' + escHtml(o.materialNo || '-') + '</td>' +
       '<td>' + escHtml(o.productName || '-') + '</td>' +
       '<td>' + escHtml(o.warehouse || '-') + '</td>' +
       '<td style="text-align:right;font-weight:600">' + (o.qty || 0) + '</td>' +
-      '<td><input type="number" class="i-qty" placeholder="0" value="' + escHtml(o._inboundQty || '') + '" style="width:100%;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right' + (o._inboundSelected?';border-color:#34a853':'') + '" onchange="updateInboundQty(\'' + safeOrderNo + '\',this.value)"></td>' +
-      '<td><input type="text" class="i-transferNo" placeholder="调总仓单号" value="' + escHtml(o._inboundTransferNo || '') + '" style="width:100%;padding:4px;border:1px solid #ddd;border-radius:4px' + (o._inboundSelected?';border-color:#34a853':'') + '" onchange="updateInboundTransferNo(\'' + safeOrderNo + '\',this.value)"></td>' +
+      '<td><input type="number" class="i-qty" placeholder="0" value="' + escHtml(o._inboundQty || '') + '" style="width:100%;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right' + (o._inboundSelected?';border-color:#34a853':'') + '" onchange="updateInboundQtyById(\'' + safeId + '\',this.value)"></td>' +
+      '<td><input type="text" class="i-transferNo" placeholder="调总仓单号" value="' + escHtml(o._inboundTransferNo || '') + '" style="width:100%;padding:4px;border:1px solid #ddd;border-radius:4px' + (o._inboundSelected?';border-color:#34a853':'') + '" onchange="updateInboundTransferNoById(\'' + safeId + '\',this.value)"></td>' +
     '</tr>';
   });
   tbody.innerHTML = html || '<tr><td colspan="8" style="text-align:center;color:#999;padding:20px">无匹配订单</td></tr>';
@@ -1498,23 +1506,39 @@ function toggleInboundSelect(orderNo, checked) {
   var order = brandOrders.find(function(o) { return o.orderNo === orderNo; });
   if (order) { order._inboundSelected = checked; renderInboundQuery(); }
 }
+// 新版：用 id 作唯一标识，支持重复单号
+function _findOrderById(id) {
+  return brandOrders.find(function(o) { return String(o.id) === String(id) || (o.orderNo === id); });
+}
+function toggleInboundSelectById(id, checked) {
+  var order = _findOrderById(id);
+  if (order) { order._inboundSelected = checked; renderInboundQuery(); }
+}
 function updateInboundQty(orderNo, val) {
   var order = brandOrders.find(function(o) { return o.orderNo === orderNo; });
+  if (order) { order._inboundQty = val; }
+}
+function updateInboundQtyById(id, val) {
+  var order = _findOrderById(id);
   if (order) { order._inboundQty = val; }
 }
 function updateInboundTransferNo(orderNo, val) {
   var order = brandOrders.find(function(o) { return o.orderNo === orderNo; });
   if (order) { order._inboundTransferNo = val; }
 }
+function updateInboundTransferNoById(id, val) {
+  var order = _findOrderById(id);
+  if (order) { order._inboundTransferNo = val; }
+}
 function submitInbound() {
   // 先把 DOM 中所有可见行的当前值同步回 brandOrders（防止用户未 blur 导致 onchange 未触发）
   var tbody = document.getElementById('inboundQueryBody');
   if (tbody) {
-    var rows = tbody.querySelectorAll('tr[data-order-no]');
+    var rows = tbody.querySelectorAll('tr[data-order-id]');
     rows.forEach(function(row) {
-      var orderNo = row.getAttribute('data-order-no');
-      if (!orderNo) return;
-      var order = brandOrders.find(function(o) { return o.orderNo === orderNo; });
+      var id = row.getAttribute('data-order-id');
+      if (!id) return;
+      var order = _findOrderById(id);
       if (!order) return;
       var qtyInput = row.querySelector('.i-qty');
       var noInput = row.querySelector('.i-transferNo');
