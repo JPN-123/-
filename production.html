@@ -904,6 +904,7 @@ let history = [];
 let persons = [];
 let confirmers = [];
 let pendingOuts = [];
+let pendingIns = [];
 let users = [];
 let currentUser = null; // { username, role }
 let sortField = 'id';
@@ -1023,7 +1024,7 @@ async function createNewGist() {
 function getDefaultData() {
   return {
     items: [], history: [], persons: [], confirmers: [],
-    pendingOuts: [], nextId: 1001, nextOutId: 1,
+    pendingOuts: [], pendingIns: [], nextId: 1001, nextOutId: 1,
     productionPlans: [], dailyReports: [], brandOrders: [],
     users: [
       { username: 'admin', password: '8888', role: 'super' }
@@ -1038,6 +1039,7 @@ function applyData(data) {
   persons = data.persons || [];
   confirmers = data.confirmers || [];
   pendingOuts = data.pendingOuts || [];
+  pendingIns = data.pendingIns || [];
   nextId = data.nextId || 1001;
   nextOutId = data.nextOutId || 1;
   users = data.users || [];
@@ -1051,7 +1053,7 @@ function applyData(data) {
 
 function collectData() {
   return {
-    items, history, persons, confirmers, pendingOuts, nextId, nextOutId, users,
+    items, history, persons, confirmers, pendingOuts, pendingIns, nextId, nextOutId, users,
     productionPlans, dailyReports, brandOrders,
     _appVersion: 9
   };
