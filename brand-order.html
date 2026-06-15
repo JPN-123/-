@@ -727,18 +727,43 @@ async function loadData() {
     if (res.ok) {
       const gist = await res.json();
       const file = gist.files && gist.files[GIST_FILENAME];
-      if (file && file.content) {
-        const data = JSON.parse(file.content);
-        applyData(data);
-        dataLoaded = true;
-        // 自动清理超量入库数据（一次性），如有修正则保存
-        var fixedCount = fixOverInbound();
-        if (fixedCount > 0) {
-          console.log('[cleanup] 共修正 ' + fixedCount + ' 条超量订单');
-          await save();
-          showToast('已自动修正 ' + fixedCount + ' 条超量入库数据并保存');
+      if (file) {
+        var content = file.content;
+        // 文件过大时 GitHub API 会截断 content，需走 raw_url 获取完整数据
+        if (!content || file.truncated) {
+          console.log('[loadData] File truncated (' + file.size + ' bytes), fetching from raw_url...');
+          try {
+            var rawRes = await fetch(file.raw_url);
+            if (rawRes.ok) {
+              content = await rawRes.text();
+              console.log('[loadData] Raw fetch complete: ' + content.length + ' chars');
+            } else {
+              throw new Error('Raw fetch failed: ' + rawRes.status);
+            }
+          } catch (rawErr) {
+            console.error('[loadData] Raw fetch error:', rawErr);
+            setSyncStatus('error', '加载失败');
+            setTimeout(function() { loadData(); }, 5000);
+            return;
+          }
         }
-        setSyncStatus('online', '已连接');
+        try {
+          const data = JSON.parse(content);
+          applyData(data);
+          dataLoaded = true;
+          // 自动清理超量入库数据（一次性），如有修正则保存
+          var fixedCount = fixOverInbound();
+          if (fixedCount > 0) {
+            console.log('[cleanup] 共修正 ' + fixedCount + ' 条超量订单');
+            await save();
+            showToast('已自动修正 ' + fixedCount + ' 条超量入库数据并保存');
+          }
+          setSyncStatus('online', '已连接');
+        } catch (parseErr) {
+          console.error('[loadData] JSON parse error:', parseErr);
+          setSyncStatus('error', '数据解析失败');
+          setTimeout(function() { loadData(); }, 5000);
+        }
       } else { await createNewGist(); }
     } else { await createNewGist(); }
   } catch (e) {
@@ -793,6 +818,7 @@ function showApp() {
   document.getElementById('appHeader').style.display = '';
   document.getElementById('appToolbar').style.display = '';
   document.getElementById('tableContainer').style.display = '';
+  document.getElementById('brandDashboard').style.display = '';
   if (currentUser) {
     document.getElementById('userInfo').style.display = '';
     document.getElementById('currentUserName').textContent = currentUser.username || 'admin';
@@ -921,8 +947,7 @@ function renderDashboard(orders) {
   var html = '';
   categories.forEach(function(c) {
     var s = stats[c];
-    if (s.qty === 0 && c !== '其他') return;
-    // 完成率以实际完工量计算，撤单等不会虚高
+    // 始终显示全部分类（含零值），避免用户误以为看板空白
     var pct = s.qty > 0 ? Math.round(s.actualCompleted / s.qty * 100) + '%' : '0%';
     html += '<tr><td style="font-weight:600">' + c + '</td>' +
       '<td>' + s.qty + '</td>' +
