@@ -549,7 +549,7 @@ let currentFilter = { date: '', status: '', search: '' };
 function today() { return new Date().toISOString().split('T')[0]; }
 function escHtml(s) {
   if (s == null) return '';
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 // ========== 角色权限 ==========
@@ -1409,7 +1409,7 @@ function parseInboundPaste() {
   var text = document.getElementById('inboundPasteText').value.trim();
   if (!text) { showToast('请先粘贴数据'); return; }
   var lines = text.split(/\r?\n/).filter(function(l) { return l.trim(); });
-  var matched = 0, notFound = [], skipped = 0;
+  var matched = 0, notFound = [], skipped = 0, noQty = 0;
   // 建立 orderNo → 未被匹配的订单列表（支持同单号多条）
   var poolMap = {};
   brandOrders.forEach(function(o) {
@@ -1420,13 +1420,14 @@ function parseInboundPaste() {
   // 已用索引（每条粘贴行消费一个匹配）
   var usedIdx = {};
   lines.forEach(function(line) {
-    var parts = line.split('\t');
-    if (parts.length < 7) { skipped++; return; }
+    var parts = line.split('\t').map(function(p) { return (p || '').trim(); });
     // 列映射：A=0日期 B=1单号 C=2料号 D=3品名 E=4数量 F=5线体 G=6入库数量 H=7备注 I=8仓库 J=9调总仓单号
-    var orderNo = (parts[1] || '').trim();
-    var inboundQty = parseInt(parts[6]) || 0;
-    var transferNo = (parts[9] || '').trim();
+    // 放宽列数检查：至少需要2列（单号必填），其余列按索引取，不足则为空
+    if (parts.length < 2) { skipped++; return; }
+    var orderNo = parts[1] || '';
     if (!orderNo) { skipped++; return; }
+    var inboundQty = (parseInt(parts[6]) || 0);
+    var transferNo = (parts.length > 9 ? parts[9] : '') || '';
     var key = orderNo.toLowerCase();
     var pool = poolMap[key] || [];
     if (!usedIdx[key]) usedIdx[key] = 0;
@@ -1434,14 +1435,20 @@ function parseInboundPaste() {
     if (order) {
       usedIdx[key]++;
       order._inboundSelected = true;
-      order._inboundQty = inboundQty > 0 ? String(inboundQty) : (order._inboundQty || '');
+      // 粘贴有入库数量就用粘贴值，否则维持原有（手动填的）值
+      if (parts.length >= 7 && parts[6] !== '') {
+        order._inboundQty = String(inboundQty);
+      } else if (!order._inboundQty) {
+        // 未填入库数量且之前没有值，标记为无数量
+        noQty++;
+      }
       if (transferNo) order._inboundTransferNo = transferNo;
       matched++;
     } else {
       notFound.push(orderNo);
     }
   });
-  // 关闭粘贴面板，刷新列表
+  // 关闭粘贴面板，刷新列表（不清空搜索，显示全部匹配结果）
   document.getElementById('inboundPastePanel').style.display = 'none';
   document.getElementById('inboundSearch').value = '';
   renderInboundQuery();
@@ -1449,8 +1456,9 @@ function parseInboundPaste() {
   var msgEl = document.getElementById('inboundPasteMsg');
   var msgs = [];
   if (matched > 0) msgs.push('<span style="color:#34a853;font-weight:600">✔ 成功匹配 ' + matched + ' 条</span>');
+  if (noQty > 0) msgs.push('<span style="color:#f59e0b">⚠ ' + noQty + ' 条未含入库数量，请手动填入</span>');
   if (notFound.length > 0) msgs.push('<span style="color:#ea4335">✘ 未找到订单（' + notFound.length + '条）：' + notFound.slice(0,5).join('、') + (notFound.length>5?'..':'') + '</span>');
-  if (skipped > 0) msgs.push('<span style="color:#999">跳过 ' + skipped + ' 行（列数不足）</span>');
+  if (skipped > 0) msgs.push('<span style="color:#999">跳过 ' + skipped + ' 行（无单号）</span>');
   msgEl.innerHTML = msgs.join(' &nbsp; ');
   if (matched > 0) {
     showToast('已匹配 ' + matched + ' 条，请确认后点保存入库');
@@ -1544,8 +1552,9 @@ function submitInbound() {
       var noInput = row.querySelector('.i-transferNo');
       var checkInput = row.querySelector('.i-check');
       if (checkInput) order._inboundSelected = checkInput.checked;
-      if (qtyInput && qtyInput.value !== '') order._inboundQty = qtyInput.value;
-      if (noInput && noInput.value !== '') order._inboundTransferNo = noInput.value;
+      // 始终同步输入框值，空值也要同步（用户可能清空）
+      if (qtyInput) order._inboundQty = qtyInput.value;
+      if (noInput) order._inboundTransferNo = noInput.value;
     });
   }
   // 检查累计入库数量是否超过订单数量
@@ -1567,8 +1576,8 @@ function submitInbound() {
   var now = new Date().toISOString();
   var operator = currentUser ? currentUser.username : 'admin';
   brandOrders.forEach(function(o) {
-    if (o._inboundSelected && o._inboundQty) {
-      var qty = parseInt(o._inboundQty) || 0;
+    var qty = parseInt(o._inboundQty) || 0;
+    if (o._inboundSelected && qty > 0) {
       o.completedQty = (parseInt(o.completedQty) || 0) + qty;  // 累加，支持分批入库
       o.mesStatus = o.completedQty >= o.qty ? '已入库' : '未入库';
       if (o.completedQty >= o.qty) o.orderStatus = '完工';  // 累计达到订单数量时自动完工
