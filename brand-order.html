@@ -625,6 +625,7 @@ function applyData(data) {
   confirmers = data.confirmers || [];
   pendingOuts = data.pendingOuts || [];
   pendingIns = data.pendingIns || [];
+  nextId = data.nextId || 1001;
   nextOutId = data.nextOutId || 1;
   users = data.users || [];
   productionPlans = data.productionPlans || [];
@@ -1352,25 +1353,38 @@ function submitOrder() {
     o.mesStatus = row.querySelector('.o-mesStatus').value.trim();
     o.planRemark = row.querySelector('.o-planRemark').value.trim();
     o.completedQty = parseInt(row.querySelector('.o-completedQty').value) || 0;
-    o.createTime = o.createTime || new Date().toISOString();
 
     if (editId) {
-      var idx = brandOrders.findIndex(function(x) { return x.id === parseInt(editId); });
+      var editIdNum = parseInt(editId);
+      var idx = brandOrders.findIndex(function(x) { return x.id === editIdNum || String(x.id) === String(editId); });
       if (idx !== -1) {
-        o.id = brandOrders[idx].id;
+        // 保留原订单的 id、createTime 及不在表单里的字段
+        var old = brandOrders[idx];
+        o.id = old.id;
+        o.createTime = old.createTime || new Date().toISOString();
         brandOrders[idx] = o;
+      } else {
+        showToast('❌ 找不到原订单，保存失败');
+        return;
       }
     } else {
       o.id = nextId++;
+      o.createTime = new Date().toISOString();
       brandOrders.push(o);
     }
   });
 
-  save().then(function() {
+  var savePromise = save();
+  var afterSave = function() {
     showToast(editId ? '修改成功' : '添加成功');
     closeOrderModal();
     renderOrders();
-  });
+  };
+  if (savePromise && typeof savePromise.then === 'function') {
+    savePromise.then(afterSave);
+  } else {
+    afterSave();
+  }
 }
 
 function deleteOrder(id) {
