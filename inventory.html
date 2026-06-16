@@ -843,6 +843,7 @@
 // ============================================================
 
 const GIST_ID_KEY = 'inventory_gist_id';
+const CACHE_KEY = 'inventory_cache';  // 本地缓存，加载失败时做降级
 
 let GITHUB_TOKEN = new URLSearchParams(window.location.search).get('token') || '';
 if (!GITHUB_TOKEN) {
@@ -926,6 +927,25 @@ async function loadData() {
   const id = getGistId();
   if (!id) { await createNewGist(); return; }
   gistId = id;
+
+  /* 加载失败时的降级函数 */
+  var _tryCache = function(msg) {
+    var cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      try {
+        var data = JSON.parse(cached);
+        applyData(data);
+        dataLoaded = true;
+        setSyncStatus('offline', '使用本地缓存');
+        showToast(msg + '，已切换本地缓存');
+        return;
+      } catch(_) {}
+    }
+    var defaultData = getDefaultData();
+    applyData(defaultData);
+    dataLoaded = true;
+  };
+
   try {
     const res = await fetch(GIST_API + '/' + gistId, {
       headers: { 'Authorization': 'token ' + GITHUB_TOKEN, 'Accept': 'application/vnd.github.v3+json' }
@@ -938,6 +958,8 @@ async function loadData() {
         applyData(data);
         dataLoaded = true;
         setSyncStatus('online', '已连接');
+        // 加载成功后缓存到本地
+        try { localStorage.setItem(CACHE_KEY, file.content); } catch(_) {}
       } else {
         // Gist 存在但文件缺失，创建新数据
         setSyncStatus('error', '数据文件缺失');
@@ -945,32 +967,22 @@ async function loadData() {
         await createNewGist();
       }
     } else if (res.status === 401 || res.status === 403) {
-      // Token 无效或权限不足，不要创建空数据！
       setSyncStatus('error', 'Token 无效');
       showToast('GitHub Token 已失效，请联系管理员更新 Token');
-      // 使用本地默认数据确保页面可用
-      const defaultData = getDefaultData();
-      applyData(defaultData);
-      dataLoaded = true;
+      _tryCache('Token 无效');
     } else if (res.status === 404) {
       // Gist 不存在，创建新的
       setSyncStatus('error', '数据未找到');
       showToast('云端数据不存在，正在创建新数据...');
       await createNewGist();
     } else {
-      // 其他错误（500、网络问题等）
       setSyncStatus('error', '加载失败(' + res.status + ')');
-      const defaultData = getDefaultData();
-      applyData(defaultData);
-      dataLoaded = true;
-      showToast('加载云端数据失败(HTTP ' + res.status + ')，使用本地缓存');
+      _tryCache('加载云端数据失败(HTTP ' + res.status + ')');
     }
   } catch (e) {
     console.error('Load error:', e);
     setSyncStatus('error', '连接失败');
-    const defaultData = getDefaultData();
-    applyData(defaultData);
-    dataLoaded = true;
+    _tryCache('连接云端失败');
   }
 }
 
@@ -1068,6 +1080,8 @@ async function save() {
         if (res.ok) {
           setSyncStatus('online', '已同步');
           _localDirty = false;
+          // 同步更新本地缓存
+          try { localStorage.setItem(CACHE_KEY, JSON.stringify(collectData())); } catch(_) {}
         }
         else { 
           console.error('Save PATCH failed:', res.status); 
