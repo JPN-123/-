@@ -807,11 +807,17 @@ async function save() {
           resolve(true);
         }
         else {
-          setSyncStatus('error', '保存失败');
+          var errText = '';
+          try { var errJson = JSON.parse(await res.text()); errText = errJson.message || ''; } catch(_) {}
+          console.error('Save PATCH failed:', res.status, errText);
+          setSyncStatus('error', '保存失败(' + res.status + ')');
+          _localDirty = false;  // 失败时清除脏标记，允许后续刷新恢复数据
           resolve(false);
         }
       } catch (e) {
+        console.error('Save error:', e);
         setSyncStatus('error', '保存失败');
+        _localDirty = false;  // 失败时清除脏标记，允许后续刷新恢复数据
         resolve(false);
       } finally {
         isSaving = false;
