@@ -713,11 +713,6 @@ function fixOverInbound() {
 }
 
 async function loadData() {
-  // 有本地未保存的数据时，跳过加载以免覆盖用户的修改
-  if (_localDirty) {
-    console.log('[loadData] skipped: local data is dirty');
-    return;
-  }
   if (!GITHUB_TOKEN) {
     setSyncStatus('offline', '本地模式');
     const defaultData = getDefaultData();
@@ -728,6 +723,24 @@ async function loadData() {
   const id = getGistId();
   if (!id) { await createNewGist(); return; }
   gistId = id;
+  // 加载失败时的降级函数
+  var _tryCache = function(msg) {
+    var cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      try {
+        var data = JSON.parse(cached);
+        applyData(data);
+        dataLoaded = true;
+        setSyncStatus('offline', '使用本地缓存');
+        showToast(msg + '，已切换本地缓存');
+        return;
+      } catch(_) {}
+    }
+    setSyncStatus('error', '连接失败');
+    // 无缓存时保持重试，不创建空数据
+    setTimeout(function() { loadData(); }, 5000);
+  };
+
   try {
     const res = await fetch(GIST_API + '/' + gistId, {
       headers: { 'Authorization': 'token ' + GITHUB_TOKEN, 'Accept': 'application/vnd.github.v3+json' }
@@ -750,8 +763,7 @@ async function loadData() {
             }
           } catch (rawErr) {
             console.error('[loadData] Raw fetch error:', rawErr);
-            setSyncStatus('error', '加载失败');
-            setTimeout(function() { loadData(); }, 5000);
+            _tryCache('数据加载失败');
             return;
           }
         }
@@ -771,27 +783,24 @@ async function loadData() {
           setSyncStatus('online', '已连接');
         } catch (parseErr) {
           console.error('[loadData] JSON parse error:', parseErr);
-          setSyncStatus('error', '数据解析失败');
-          setTimeout(function() { loadData(); }, 5000);
+          _tryCache('数据解析失败');
         }
       } else { await createNewGist(); }
-    } else { await createNewGist(); }
+    } else if (res.status === 401 || res.status === 403) {
+      setSyncStatus('error', 'Token 无效');
+      showToast('GitHub Token 已失效，请联系管理员更新 Token');
+      _tryCache('Token 无效');
+    } else if (res.status === 404) {
+      setSyncStatus('error', '数据未找到');
+      showToast('云端数据不存在，正在创建新数据...');
+      await createNewGist();
+    } else {
+      setSyncStatus('error', '加载失败(' + res.status + ')');
+      _tryCache('加载云端数据失败(HTTP ' + res.status + ')');
+    }
   } catch (e) {
     console.error('Load error:', e);
-    // 尝试降级到本地缓存
-    var cached = localStorage.getItem(CACHE_KEY);
-    if (cached && !dataLoaded) {
-      try {
-        var data = JSON.parse(cached);
-        applyData(data);
-        dataLoaded = true;
-        setSyncStatus('offline', '使用本地缓存');
-        showToast('连接云端失败，已切换本地缓存');
-        return;
-      } catch(_) {}
-    }
-    setSyncStatus('error', '连接失败');
-    setTimeout(() => loadData(), 3000);
+    _tryCache('连接云端失败');
   }
 }
 
@@ -1413,7 +1422,8 @@ function submitOrder() {
 
   var savePromise = save();
   if (savePromise === null) {
-    // Gist 未就绪，无法保存
+    // Gist 未就绪，无法保存 — 必须清除脏标记否则页面卡死
+    _localDirty = false;
     showToast('⚠️ 无法连接Gist，修改未保存');
     return;
   }
@@ -1431,6 +1441,7 @@ function submitOrder() {
 function deleteOrder(id) {
   if (!confirm('确定删除此订单？')) return;
   brandOrders = brandOrders.filter(function(x) { return x.id !== id; });
+  _localDirty = true;
   save().then(function() {
     showToast('删除成功');
     renderOrders();
@@ -1969,6 +1980,7 @@ window.addEventListener('message', function(e) {
     document.getElementById('loadingOverlay').classList.add('hidden');
   }
   setInterval(function() {
+    if (_localDirty) { console.log('[autoRefresh] skipped: local data is dirty'); return; }
     if (GITHUB_TOKEN && gistId && !isSaving) loadData();
   }, 15000);
 })();
