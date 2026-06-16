@@ -515,6 +515,7 @@
 <script>
 // ========== 常量 ==========
 const GIST_ID_KEY = 'inventory_gist_id';
+const CACHE_KEY = 'brand_order_cache';  // 本地缓存，加载失败时降级
 let GITHUB_TOKEN = new URLSearchParams(window.location.search).get('token') || '';
 if (!GITHUB_TOKEN) {
   GITHUB_TOKEN = localStorage.getItem('platform_token') || '';
@@ -758,6 +759,8 @@ async function loadData() {
           const data = JSON.parse(content);
           applyData(data);
           dataLoaded = true;
+          // 缓存到本地，加载失败时降级使用
+          try { localStorage.setItem(CACHE_KEY, content); } catch(_) {}
           // 自动清理超量入库数据（一次性），如有修正则保存
           var fixedCount = fixOverInbound();
           if (fixedCount > 0) {
@@ -775,6 +778,18 @@ async function loadData() {
     } else { await createNewGist(); }
   } catch (e) {
     console.error('Load error:', e);
+    // 尝试降级到本地缓存
+    var cached = localStorage.getItem(CACHE_KEY);
+    if (cached && !dataLoaded) {
+      try {
+        var data = JSON.parse(cached);
+        applyData(data);
+        dataLoaded = true;
+        setSyncStatus('offline', '使用本地缓存');
+        showToast('连接云端失败，已切换本地缓存');
+        return;
+      } catch(_) {}
+    }
     setSyncStatus('error', '连接失败');
     setTimeout(() => loadData(), 3000);
   }
@@ -804,6 +819,7 @@ async function save() {
         if (res.ok) {
           setSyncStatus('online', '已同步');
           _localDirty = false;  // 保存成功，清除脏标记
+          try { localStorage.setItem(CACHE_KEY, JSON.stringify(collectData())); } catch(_) {}
           resolve(true);
         }
         else {
