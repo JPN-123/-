@@ -1069,10 +1069,15 @@ async function save() {
           setSyncStatus('online', '已同步');
           _localDirty = false;
         }
-        else { setSyncStatus('error', '保存失败'); }
+        else { 
+          console.error('Save PATCH failed:', res.status); 
+          setSyncStatus('error', '保存失败(' + res.status + ')'); 
+          _localDirty = false; 
+        }
       } catch (e) {
         console.error('Save error:', e);
         setSyncStatus('error', '保存失败');
+        _localDirty = false;
       }
       isSaving = false;
       resolve();
