@@ -544,6 +544,7 @@ let gistId = null;
 let isSaving = false;
 let saveTimer = null;
 let dataLoaded = false;
+let _localDirty = false;  // 标记有本地修改尚未同步到Gist
 let currentFilter = { date: '', status: '', search: '' };
 
 function today() { return new Date().toISOString().split('T')[0]; }
@@ -711,6 +712,11 @@ function fixOverInbound() {
 }
 
 async function loadData() {
+  // 有本地未保存的数据时，跳过加载以免覆盖用户的修改
+  if (_localDirty) {
+    console.log('[loadData] skipped: local data is dirty');
+    return;
+  }
   if (!GITHUB_TOKEN) {
     setSyncStatus('offline', '本地模式');
     const defaultData = getDefaultData();
@@ -775,11 +781,12 @@ async function loadData() {
 }
 
 async function save() {
-  if (!gistId || !dataLoaded) return;
+  if (!gistId || !dataLoaded) return null;  // 返回 null 表示保存未执行
+  _localDirty = true;
   clearTimeout(saveTimer);
   return new Promise((resolve) => {
     saveTimer = setTimeout(async () => {
-      if (isSaving) { resolve(); return; }
+      if (isSaving) { resolve(false); return; }
       isSaving = true;
       setSyncStatus('saving', '保存中...');
       try {
@@ -794,13 +801,20 @@ async function save() {
             files: { [GIST_FILENAME]: { content: JSON.stringify(collectData()) } }
           })
         });
-        if (res.ok) { setSyncStatus('online', '已同步'); }
-        else { setSyncStatus('error', '保存失败'); }
+        if (res.ok) {
+          setSyncStatus('online', '已同步');
+          _localDirty = false;  // 保存成功，清除脏标记
+          resolve(true);
+        }
+        else {
+          setSyncStatus('error', '保存失败');
+          resolve(false);
+        }
       } catch (e) {
         setSyncStatus('error', '保存失败');
+        resolve(false);
       } finally {
         isSaving = false;
-        resolve();
       }
     }, 500);
   });
@@ -1373,18 +1387,23 @@ function submitOrder() {
       brandOrders.push(o);
     }
   });
+  _localDirty = true;  // 先标记脏数据，防止 loadData 覆盖本地修改
 
   var savePromise = save();
-  var afterSave = function() {
-    showToast(editId ? '修改成功' : '添加成功');
+  if (savePromise === null) {
+    // Gist 未就绪，无法保存
+    showToast('⚠️ 无法连接Gist，修改未保存');
+    return;
+  }
+  savePromise.then(function(ok) {
+    if (ok) {
+      showToast(editId ? '修改成功' : '添加成功');
+    } else {
+      showToast('⚠️ 保存到Gist失败，数据可能未持久化');
+    }
     closeOrderModal();
     renderOrders();
-  };
-  if (savePromise && typeof savePromise.then === 'function') {
-    savePromise.then(afterSave);
-  } else {
-    afterSave();
-  }
+  });
 }
 
 function deleteOrder(id) {
