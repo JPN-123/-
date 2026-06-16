@@ -872,6 +872,7 @@ let gistId = null;
 let isSaving = false;
 let saveTimer = null;
 let dataLoaded = false;
+let _localDirty = false;  // 防止自动刷新覆盖本地修改
 let productionPlans = [];
 let dailyReports = [];
 let brandOrders = [];
@@ -1045,6 +1046,7 @@ function collectData() {
 
 async function save() {
   if (!gistId || !dataLoaded) return;
+  _localDirty = true;
   clearTimeout(saveTimer);
   return new Promise((resolve) => {
     saveTimer = setTimeout(async () => {
@@ -1063,7 +1065,10 @@ async function save() {
             files: { [GIST_FILENAME]: { content: JSON.stringify(collectData()) } }
           })
         });
-        if (res.ok) { setSyncStatus('online', '已同步'); }
+        if (res.ok) {
+          setSyncStatus('online', '已同步');
+          _localDirty = false;
+        }
         else { setSyncStatus('error', '保存失败'); }
       } catch (e) {
         console.error('Save error:', e);
@@ -2042,6 +2047,7 @@ document.querySelectorAll('.modal-overlay').forEach(el => { el.addEventListener(
 // ========== 定时刷新数据（多人协作同步）==========
 async function refreshData() {
   if (!gistId || !dataLoaded) return;
+  if (_localDirty) { console.log('[refreshData] skipped: local data is dirty'); return; }
   try {
     const res = await fetch(GIST_API + '/' + gistId, {
       headers: { 'Authorization': 'token ' + GITHUB_TOKEN, 'Accept': 'application/vnd.github.v3+json' }
