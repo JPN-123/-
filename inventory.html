@@ -856,6 +856,13 @@ if (new URLSearchParams(window.location.search).get('token')) {
 const GIST_API = 'https://api.github.com/gists';
 const GIST_FILENAME = 'inventory_data.json';
 
+function apiHeaders(extra) {
+  var h = extra ? Object.assign({}, extra) : {};
+  h['Accept'] = 'application/vnd.github.v3+json';
+  if (GITHUB_TOKEN) h['Authorization'] = 'token ' + GITHUB_TOKEN;
+  return h;
+}
+
 let items = [];
 let history = [];
 let persons = [];
@@ -948,7 +955,7 @@ async function loadData() {
 
   try {
     const res = await fetch(GIST_API + '/' + gistId, {
-      headers: { 'Authorization': 'token ' + GITHUB_TOKEN, 'Accept': 'application/vnd.github.v3+json' }
+      headers: apiHeaders()
     });
     if (res.ok) {
       const gist = await res.json();
@@ -991,11 +998,7 @@ async function createNewGist() {
   try {
     const res = await fetch(GIST_API, {
       method: 'POST',
-      headers: {
-        'Authorization': 'token ' + GITHUB_TOKEN,
-        'Accept': 'application/vnd.github.v3+json',
-        'Content-Type': 'application/json'
-      },
+      headers: apiHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({
         description: '辅料库存管理系统数据',
         public: false,
@@ -1068,11 +1071,7 @@ async function save() {
       try {
         const res = await fetch(GIST_API + '/' + gistId, {
           method: 'PATCH',
-          headers: {
-            'Authorization': 'token ' + GITHUB_TOKEN,
-            'Accept': 'application/vnd.github.v3+json',
-            'Content-Type': 'application/json'
-          },
+          headers: apiHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             files: { [GIST_FILENAME]: { content: JSON.stringify(collectData()) } }
           })
@@ -2069,7 +2068,7 @@ async function refreshData() {
   if (_localDirty) { console.log('[refreshData] skipped: local data is dirty'); return; }
   try {
     const res = await fetch(GIST_API + '/' + gistId, {
-      headers: { 'Authorization': 'token ' + GITHUB_TOKEN, 'Accept': 'application/vnd.github.v3+json' }
+      headers: apiHeaders()
     });
     if (res.ok) {
       const gist = await res.json();
