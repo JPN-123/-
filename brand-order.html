@@ -1973,7 +1973,8 @@ window.addEventListener('message', function(e) {
   try {
     await initLoadPromise;
     dataLoaded = true;
-    if (currentUser) showApp();
+    // login handled by parent platform; also works standalone
+    showApp();
     // 一次性迁移：从JSON导入历史入库流水
     if (inboundRecords.length === 0) {
       runInboundMigration();
