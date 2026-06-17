@@ -527,6 +527,14 @@ const GIST_API = 'https://api.github.com/gists';
 const GIST_FILENAME = 'inventory_data.json';
 const PRESET_GIST_ID = '8cd0ec9b1c7ba76a3186a4db9f6d8e80';
 
+// 构建 API headers — token 为空时不发 Authorization（公开 Gist 无需认证）
+function apiHeaders(extra) {
+  var h = extra ? Object.assign({}, extra) : {};
+  h['Accept'] = 'application/vnd.github.v3+json';
+  if (GITHUB_TOKEN) h['Authorization'] = 'token ' + GITHUB_TOKEN;
+  return h;
+}
+
 // ========== 变量 ==========
 let items = [];
 let history = [];
@@ -588,11 +596,7 @@ async function createNewGist() {
   try {
     const res = await fetch(GIST_API, {
       method: 'POST',
-      headers: {
-        'Authorization': 'token ' + GITHUB_TOKEN,
-        'Accept': 'application/vnd.github.v3+json',
-        'Content-Type': 'application/json'
-      },
+      headers: apiHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({
         description: 'BRAND订单数据',
         public: false,
@@ -743,7 +747,7 @@ async function loadData() {
 
   try {
     const res = await fetch(GIST_API + '/' + gistId, {
-      headers: { 'Authorization': 'token ' + GITHUB_TOKEN, 'Accept': 'application/vnd.github.v3+json' }
+      headers: apiHeaders()
     });
     if (res.ok) {
       const gist = await res.json();
@@ -816,11 +820,7 @@ async function save() {
       try {
         const res = await fetch(GIST_API + '/' + gistId, {
           method: 'PATCH',
-          headers: {
-            'Authorization': 'token ' + GITHUB_TOKEN,
-            'Accept': 'application/vnd.github.v3+json',
-            'Content-Type': 'application/json'
-          },
+          headers: apiHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             files: { [GIST_FILENAME]: { content: JSON.stringify(collectData()) } }
           })
