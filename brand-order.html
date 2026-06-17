@@ -795,10 +795,14 @@ async function loadData() {
       showToast('GitHub Token 已失效，请联系管理员更新 Token');
       _tryCache('Token 无效');
     } else if (res.status === 404) {
-      setSyncStatus('error', '数据未找到');
-      showToast('云端数据不存在，正在创建新数据...');
-      await createNewGist();
-    } else {
+      // 私有 Gist 无 token 时也返回 404！只有初次使用（PRESET Gist）才创建新的
+      if (gistId === PRESET_GIST_ID) {
+        setSyncStatus('error', '数据未找到');
+        showToast('云端数据不存在，正在创建新数据...');
+        await createNewGist();
+      } else {
+        _tryCache('无法访问云端数据（可能是Token过期），已切换本地缓存');
+      } else {
       setSyncStatus('error', '加载失败(' + res.status + ')');
       _tryCache('加载云端数据失败(HTTP ' + res.status + ')');
     }
