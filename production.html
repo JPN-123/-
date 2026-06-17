@@ -1026,7 +1026,8 @@ async function loadData() {
         await createNewGist();
       } else {
         _tryCache('无法访问云端数据（可能是Token过期），已切换本地缓存');
-      } else {
+      }
+    } else {
       setSyncStatus('error', '加载失败(' + res.status + ')');
       _tryCache('加载云端数据失败(HTTP ' + res.status + ')');
     }
