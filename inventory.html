@@ -978,11 +978,13 @@ async function loadData() {
       showToast('GitHub Token 已失效，请联系管理员更新 Token');
       _tryCache('Token 无效');
     } else if (res.status === 404) {
-      // Gist 不存在，创建新的
-      setSyncStatus('error', '数据未找到');
-      showToast('云端数据不存在，正在创建新数据...');
-      await createNewGist();
-    } else {
+      if (gistId === PRESET_GIST_ID) {
+        setSyncStatus('error', '数据未找到');
+        showToast('云端数据不存在，正在创建新数据...');
+        await createNewGist();
+      } else {
+        _tryCache('无法访问云端数据（可能是Token过期），已切换本地缓存');
+      } else {
       setSyncStatus('error', '加载失败(' + res.status + ')');
       _tryCache('加载云端数据失败(HTTP ' + res.status + ')');
     }
