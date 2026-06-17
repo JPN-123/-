@@ -2133,11 +2133,8 @@ window.addEventListener('message', function(e) {
   try {
     await initLoadPromise;
     dataLoaded = true;
-    // login handled by parent platform
-    if (currentUser) {
-      refreshPersonDatalist();
-      renderTable();
-    }
+    // login handled by parent platform; also works standalone
+    showApp();
   } catch (e) {
     console.error('Init error:', e);
     showToast('初始化失败，请刷新页面重试');
