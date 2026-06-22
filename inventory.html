@@ -969,7 +969,30 @@ async function loadData() {
     }
   }
 
-  // 无任何本地数据时，再走远程加载
+  // 无任何本地数据时，尝试从 Gist raw URL 直接获取（CORS 已确认允许）
+  var _rawUrl = 'https://gist.githubusercontent.com/JPN-123/8cd0ec9b1c7ba76a3186a4db9f6d8e80/raw/inventory_data.json';
+  try {
+    setSyncStatus('syncing', '正在从云端获取数据...');
+    var _rawRes = await fetch(_rawUrl);
+    if (_rawRes.ok) {
+      var _rawText = await _rawRes.text();
+      var _remoteData = JSON.parse(_rawText);
+      if (_remoteData.items && _remoteData.items.length > 0) {
+        applyData(_remoteData);
+        dataLoaded = true;
+        // 缓存到两个 key，确保下次能读到
+        try { localStorage.setItem('inventory_data', JSON.stringify(_remoteData)); } catch(_) {}
+        try { localStorage.setItem('inventory_cache', _rawText); } catch(_) {}
+        setSyncStatus('offline', '已从云端恢复 (' + _remoteData.items.length + '条)');
+        showToast('数据恢复成功！' + _remoteData.items.length + ' 条物品', 'success');
+        return;
+      }
+    }
+  } catch(e) {
+    console.log('Raw URL fallback failed:', e.message);
+  }
+
+  // 所有远程方式都失败，走本地默认数据
   if (!GITHUB_TOKEN) {
     // 无 token 时使用本地默认数据
     setSyncStatus('offline', '本地模式');
