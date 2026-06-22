@@ -844,13 +844,14 @@ async function save() {
           try { var errJson = JSON.parse(await res.text()); errText = errJson.message || ''; } catch(_) {}
           console.error('Save PATCH failed:', res.status, errText);
           setSyncStatus('error', '保存失败(' + res.status + ')');
-          _localDirty = false;  // 失败时清除脏标记，允许后续刷新恢复数据
+          // 注意：保存失败时不清除脏标记，防止 loadData 用旧数据覆盖本地修改
+          // 用户需检查 token 权限或网络后手动刷新
           resolve(false);
         }
       } catch (e) {
         console.error('Save error:', e);
         setSyncStatus('error', '保存失败');
-        _localDirty = false;  // 失败时清除脏标记，允许后续刷新恢复数据
+        // 同上，保留脏标记
         resolve(false);
       } finally {
         isSaving = false;
@@ -1453,14 +1454,14 @@ function submitOrder() {
   if (savePromise === null) {
     // Gist 未就绪，无法保存 — 必须清除脏标记否则页面卡死
     _localDirty = false;
-    showToast('⚠️ 无法连接Gist，修改未保存');
-    return;
-  }
+      showToast('⚠️ 无法连接Gist，修改仅在本地（需检查Token权限）');
+      return;
+    }
   savePromise.then(function(ok) {
     if (ok) {
       showToast(editId ? '修改成功' : '添加成功');
     } else {
-      showToast('⚠️ 保存到Gist失败，数据可能未持久化');
+      showToast('❌ Gist保存失败(403?)，修改未持久化到云端！请检查Token是否有gist写入权限');
     }
     closeOrderModal();
     renderOrders();
