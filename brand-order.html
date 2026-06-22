@@ -1649,7 +1649,10 @@ function submitInbound() {
       var checkInput = row.querySelector('.i-check');
       if (checkInput) order._inboundSelected = checkInput.checked;
       // 始终同步输入框值，空值也要同步（用户可能清空）
-      if (qtyInput) order._inboundQty = qtyInput.value;
+      // 注意：仅当用户手动修改过输入框时才用DOM值覆盖，避免粘贴导入的值被清空
+      if (qtyInput && qtyInput.value !== '') {
+        order._inboundQty = qtyInput.value;
+      }
       if (noInput) order._inboundTransferNo = noInput.value;
     });
   }
