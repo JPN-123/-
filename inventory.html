@@ -961,12 +961,23 @@ async function loadData() {
       const gist = await res.json();
       const file = gist.files && gist.files[GIST_FILENAME];
       if (file && file.content) {
-        const data = JSON.parse(file.content);
+        var rawContent = file.content;
+        // GitHub API 对超过1MB的文件会截断，需通过 raw_url 获取完整内容
+        if (file.truncated && file.raw_url) {
+          setSyncStatus('syncing', '加载完整数据...');
+          const rawRes = await fetch(file.raw_url, { headers: apiHeaders() });
+          if (rawRes.ok) {
+            rawContent = await rawRes.text();
+          } else {
+            throw new Error('无法获取完整数据 (raw_url fetch failed: ' + rawRes.status + ')');
+          }
+        }
+        const data = JSON.parse(rawContent);
         applyData(data);
         dataLoaded = true;
         setSyncStatus('online', '已连接');
         // 加载成功后缓存到本地
-        try { localStorage.setItem(CACHE_KEY, file.content); } catch(_) {}
+        try { localStorage.setItem(CACHE_KEY, rawContent); } catch(_) {}
       } else {
         // Gist 存在但文件缺失，创建新数据
         setSyncStatus('error', '数据文件缺失');
@@ -2077,7 +2088,13 @@ async function refreshData() {
       const gist = await res.json();
       const file = gist.files && gist.files[GIST_FILENAME];
       if (file && file.content) {
-        const data = JSON.parse(file.content);
+        var rawContent = file.content;
+        if (file.truncated && file.raw_url) {
+          const rawRes = await fetch(file.raw_url, { headers: apiHeaders() });
+          if (rawRes.ok) { rawContent = await rawRes.text(); }
+          else { return; }
+        }
+        const data = JSON.parse(rawContent);
         applyData(data);
         if (currentTab === 'production') { renderPlans(); }
         else { renderTable(); refreshPersonDatalist(); }
