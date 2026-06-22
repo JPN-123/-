@@ -1407,6 +1407,17 @@ function submitOrder() {
     o.planRemark = row.querySelector('.o-planRemark').value.trim();
     o.completedQty = parseInt(row.querySelector('.o-completedQty').value) || 0;
 
+    // 保存后根据完工量自动更新状态，不依赖下拉框旧值
+    if (o.orderStatus !== '撤单') {
+      if (o.completedQty > 0 && parseInt(o.qty) > 0 && o.completedQty >= parseInt(o.qty)) {
+        o.orderStatus = '完工';
+        o.mesStatus = '已入库';
+      } else if (!o.orderStatus) {
+        // 状态为空时给一个合理的默认值
+        o.orderStatus = '排产中';
+      }
+    }
+
     if (editId) {
       var editIdNum = parseInt(editId);
       var idx = brandOrders.findIndex(function(x) { return x.id === editIdNum || String(x.id) === String(editId); });
