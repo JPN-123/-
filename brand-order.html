@@ -644,6 +644,8 @@ function applyData(data) {
   // 清理旧数据中的无效订单状态
   brandOrders.forEach(function(o) {
     if (o.orderStatus === '0' || o.orderStatus === 0) o.orderStatus = '';
+    // "未清目" 是外部导入的残留状态值，统一转为空（后续由校正逻辑自动计算）
+    if (o.orderStatus === '未清目') o.orderStatus = '';
   });
   // 全量校正：确保 completedQty >= qty 的订单状态为"完工"
   brandOrders.forEach(function(o) {
@@ -1421,6 +1423,16 @@ function submitOrder() {
       o.id = nextId++;
       o.createTime = new Date().toISOString();
       brandOrders.push(o);
+    }
+  });
+  // 编辑保存后校正：确保 completedQty >= qty 的订单状态为"完工"
+  brandOrders.forEach(function(o) {
+    if (o.orderStatus === '撤单') return;
+    var cq = parseInt(o.completedQty) || 0;
+    var q = parseInt(o.qty) || 0;
+    if (cq > 0 && q > 0 && cq >= q) {
+      o.mesStatus = '已入库';
+      o.orderStatus = '完工';
     }
   });
   _localDirty = true;  // 先标记脏数据，防止 loadData 覆盖本地修改
