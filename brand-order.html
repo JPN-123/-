@@ -641,11 +641,12 @@ function applyData(data) {
   if (!data.users || data.users.length === 0) {
     users = [{ username: 'admin', password: '8888', role: 'super' }];
   }
-  // 清理旧数据中的无效订单状态
+  // 清理旧数据中的无效/外部导入的残留订单状态
+  var VALID_STATUSES = ['','未备料','已备料','首件已好','排产中','完工','撤单'];
   brandOrders.forEach(function(o) {
     if (o.orderStatus === '0' || o.orderStatus === 0) o.orderStatus = '';
-    // "未清目" 是外部导入的残留状态值，统一转为空（后续由校正逻辑自动计算）
-    if (o.orderStatus === '未清目') o.orderStatus = '';
+    // 不在标准状态列表中的值（如"未清目"、"未清料"等导入残留），统一转为空
+    if (VALID_STATUSES.indexOf(o.orderStatus) === -1) o.orderStatus = '';
   });
   // 全量校正：确保 completedQty >= qty 的订单状态为"完工"
   brandOrders.forEach(function(o) {
