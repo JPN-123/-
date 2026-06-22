@@ -922,7 +922,54 @@ function setSyncStatus(status, text) {
   label.textContent = text;
 }
 
+// 异步同步本地数据到云端（不阻塞UI显示）
+async function _syncToCloud(localData) {
+  if (!GITHUB_TOKEN) return;
+  try {
+    const id = getGistId();
+    if (!id) return;
+    const res = await fetch(GIST_API + '/' + id, { headers: apiHeaders() });
+    if (!res.ok) return;
+    const gist = await res.json();
+    const file = gist.files && gist.files[GIST_FILENAME];
+    var remoteContent = file && file.content ? file.content : null;
+    if (file && file.truncated && file.raw_url) {
+      try { remoteContent = await (await fetch(file.raw_url)).text(); } catch(_) {}
+    }
+    // 如果云端有更新的数据，用云端的；否则把本地上传
+    if (remoteContent) {
+      var rd = JSON.parse(remoteContent);
+      if ((rd.items||[]).length >= (localData.items||[]).length) return; // 云端更新或相等，不用上传
+    }
+    // 本地数据比云端新/多，上传
+    await save();
+    setSyncStatus('online', '已同步到云端');
+  } catch(e) {
+    console.log('_syncToCloud:', e.message);
+  }
+}
+
 async function loadData() {
+  // 【优先】检查 localStorage 是否已有有效数据（restore.html 恢复的或之前缓存的）
+  var _localKeys = ['inventory_data', 'inventory_cache'];
+  for (var _li = 0; _li < _localKeys.length; _li++) {
+    var _raw = localStorage.getItem(_localKeys[_li]);
+    if (_raw) {
+      try {
+        var _ld = JSON.parse(_raw);
+        if (_ld.items && _ld.items.length > 0) {
+          applyData(_ld);
+          dataLoaded = true;
+          setSyncStatus('offline', '使用本地数据 (' + _ld.items.length + '条)');
+          // 异步尝试同步云端（不阻塞显示）
+          _syncToCloud(_ld);
+          return;
+        }
+      } catch(_) {}
+    }
+  }
+
+  // 无任何本地数据时，再走远程加载
   if (!GITHUB_TOKEN) {
     // 无 token 时使用本地默认数据
     setSyncStatus('offline', '本地模式');
