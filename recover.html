@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>一键恢复 - WorkBuddy</title>
+<style>
+body{font-family:"Microsoft YaHei",sans-serif;background:linear-gradient(135deg,#1a73e8,#0d47a1);color:#fff;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}
+.box{background:#fff;color:#333;padding:50px;border-radius:16px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.3);max-width:480px;width:90%}
+h1{margin-bottom:8px;font-size:24px}
+.subtitle{color:#666;margin-bottom:30px;font-size:14px}
+.btn{display:block;width:100%;padding:14px;border:none;border-radius:10px;font-size:16px;cursor:pointer;margin:12px 0;font-weight:600;transition:all .2s}
+.btn-primary{background:#1a73e8;color:#fff}
+.btn-primary:hover{background:#1557b0;transform:scale(1.02)}
+.btn-success{background:#34a853;color:#fff}
+.btn-success:hover{background:#2e7d32;transform:scale(1.02)}
+.status{margin:20px 0;padding:16px;border-radius:10px;font-size:14px;display:none}
+.status.ok{background:#e8f5e9;color:#2e7d32;display:block}
+.status.err{background:#fce8e6;color:#c5221f;display:block}
+.status.info{background:#e8f0fe;color:#1a73e8;display:block}
+.log{max-height:150px;overflow:auto;background:#f5f5f5;padding:12px;border-radius:8px;text-align:left;font-size:12px;color:#666;margin-top:12px;display:none;font-family:monospace}
+.spinner{display:inline-block;width:20px;height:20px;border:3px solid #e0e0e0;border-top:3px solid #1a73e8;border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="box">
+<h1>📦 数据恢复工具</h1>
+<p class="subtitle">WorkBuddy 辅料库存管理系统</p>
+
+<button class="btn btn-primary" id="btnRestore" onclick="doRestore()">
+⬇️ 第一步：下载并恢复数据（68条物品）
+</button>
+
+<button class="btn btn-success" id="btnGo" onclick="goInventory()" style="display:none">
+✅ 第二步：进入辅料库存查看
+</button>
+
+<div class="status info" id="statusInfo">
+<span class="spinner"></span><span id="infoText">正在连接...</span>
+</div>
+
+<div class="status ok" id="statusOk">✅ <b id="okText">恢复成功！</b></div>
+
+<div class="status err" id="statusErr">❌ <span id="errText"></span></div>
+
+<div class="log" id="logArea"></div>
+</div>
+<script>
+var RAW_URL = 'https://gist.githubusercontent.com/JPN-123/8cd0ec9b1c7ba76a3186a4db9f6d8e80/raw/inventory_data.json';
+var STORAGE_KEYS = ['inventory_data', 'inventory_cache'];
+
+function log(msg) {
+  var la = document.getElementById('logArea');
+  la.style.display = 'block';
+  var t = document.createElement('div');
+  t.textContent = new Date().toLocaleTimeString() + ' | ' + msg;
+  la.appendChild(t);
+  la.scrollTop = la.scrollHeight;
+}
+
+async function doRestore() {
+  var btn = document.getElementById('btnRestore');
+  btn.disabled = true;
+  btn.textContent = '⏳ 正在下载中，请稍候...';
+
+  var info = document.getElementById('statusInfo');
+  var ok = document.getElementById('statusOk');
+  var err = document.getElementById('statusErr');
+  ok.style.display = 'none';
+  err.style.display = 'none';
+  info.style.display = 'block';
+
+  try {
+    log('开始从云端下载数据...');
+    document.getElementById('infoText').textContent = '正在从 GitHub 下载数据...';
+
+    // Step 1: Fetch from raw URL (CORS allowed)
+    var res = await fetch(RAW_URL, { mode: 'cors' });
+    if (!res.ok) throw new Error('HTTP ' + res.status + ': 无法连接到 GitHub');
+
+    log('HTTP ' + res.status + ', 开始读取内容...');
+    document.getElementById('infoText').textContent = '正在解析数据（约 1MB）...';
+
+    var rawText = await res.text();
+    log('收到 ' + rawText.length + ' 字节');
+
+    var data = JSON.parse(rawText);
+    var items = (data.items || []).length;
+    var history = (data.history || []).length;
+
+    log('解析成功: ' + items + ' 条物品, ' + history + ' 条历史');
+
+    if (items === 0) throw new Error('数据为空（items 数量为 0）');
+
+    // Step 2: Write to ALL storage keys
+    document.getElementById('infoText').textContent = '正在写入浏览器存储...';
+
+    for (var i = 0; i < STORAGE_KEYS.length; i++) {
+      try {
+        localStorage.setItem(STORAGE_KEYS[i], JSON.stringify(data));
+        log('写入 ' + STORAGE_KEYS[i] + ' 成功');
+      } catch(e) {
+        log('写入 ' + STORAGE_KEYS[i] + ' 失败: ' + e.message);
+      }
+    }
+
+    // Also store raw text for inventory_cache
+    try { localStorage.setItem('inventory_cache', rawText); } catch(e) {}
+
+    // Done!
+    info.style.display = 'none';
+    ok.style.display = 'block';
+    document.getElementById('okText').innerHTML =
+      '恢复成功！<br>' +
+      '<br>📦 物品：<b>' + items + '</b> 条<br>' +
+      '📋 历史：<b>' + history + '</b> 条<br>' +
+      '<br>✅ 已保存到浏览器本地存储<br>' +
+      '✅ 刷新页面不会丢失';
+
+    btn.style.display = 'none';
+    document.getElementById('btnGo').style.display = 'block';
+
+  } catch(e) {
+    log('错误: ' + e.message);
+    console.error(e);
+    info.style.display = 'none';
+    err.style.display = 'block';
+    document.getElementById('errText').textContent = e.message;
+    btn.disabled = false;
+    btn.textContent = '🔄 重试';
+  }
+}
+
+function goInventory() {
+  window.location.href = 'inventory.html';
+}
+</script>
+</body>
+</html>
