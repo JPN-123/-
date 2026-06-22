@@ -1635,7 +1635,9 @@ function updateInboundTransferNoById(id, val) {
   if (order) { order._inboundTransferNo = val; }
 }
 function submitInbound() {
-  // 先把 DOM 中所有可见行的当前值同步回 brandOrders（防止用户未 blur 导致 onchange 未触发）
+  // 把 DOM 中所有可见行的当前值同步回 brandOrders（防止用户未 blur 导致 onchange 未触发）
+  // 注意：_inboundSelected 以对象数据为准（粘贴导入/手动勾选已正确设置），
+  //       不用 DOM checkbox 值覆盖，避免因 DOM 渲染/过滤时机导致状态丢失
   var tbody = document.getElementById('inboundQueryBody');
   if (tbody) {
     var rows = tbody.querySelectorAll('tr[data-order-id]');
@@ -1646,10 +1648,7 @@ function submitInbound() {
       if (!order) return;
       var qtyInput = row.querySelector('.i-qty');
       var noInput = row.querySelector('.i-transferNo');
-      var checkInput = row.querySelector('.i-check');
-      if (checkInput) order._inboundSelected = checkInput.checked;
-      // 始终同步输入框值，空值也要同步（用户可能清空）
-      // 注意：仅当用户手动修改过输入框时才用DOM值覆盖，避免粘贴导入的值被清空
+      // 仅同步用户可能修改过的输入值，不覆盖选中状态
       if (qtyInput && qtyInput.value !== '') {
         order._inboundQty = qtyInput.value;
       }
