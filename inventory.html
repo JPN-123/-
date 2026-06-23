@@ -290,7 +290,7 @@
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
-  <div class="loading-text">正在加载数据... <span style="font-size:11px;color:#999">v2026.06.23</span></div>
+  <div class="loading-text">正在加载数据... <span style="font-size:11px;color:#999">v2026.06.23b</span></div>
 </div>
 
 <div class="top-bar">
@@ -1129,6 +1129,9 @@ async function save() {
   if (!gistId || !dataLoaded) return;
   _localDirty = true;
   clearTimeout(saveTimer);
+  // 【加固】立即写入 localStorage 作为本地备份，无论云端是否成功
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(collectData())); } catch(_) {}
+  try { localStorage.setItem('inventory_data', JSON.stringify(collectData())); } catch(_) {}
   return new Promise((resolve) => {
     saveTimer = setTimeout(async () => {
       if (isSaving) { resolve(); return; }
@@ -1145,17 +1148,17 @@ async function save() {
         if (res.ok) {
           setSyncStatus('online', '已同步');
           _localDirty = false;
-          // 同步更新本地缓存
+          // 云端成功后再次更新缓存
           try { localStorage.setItem(CACHE_KEY, JSON.stringify(collectData())); } catch(_) {}
         }
-        else { 
-          console.error('Save PATCH failed:', res.status); 
-          setSyncStatus('error', '保存失败(' + res.status + ')'); 
-          _localDirty = false; 
+        else {
+          console.error('Save PATCH failed:', res.status);
+          setSyncStatus('error', '云端保存失败(' + res.status + ')，数据已保存在浏览器本地');
+          _localDirty = false;
         }
       } catch (e) {
         console.error('Save error:', e);
-        setSyncStatus('error', '保存失败');
+        setSyncStatus('error', '云端保存失败，数据已保存在浏览器本地');
         _localDirty = false;
       }
       isSaving = false;
