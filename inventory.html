@@ -290,7 +290,7 @@
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
-  <div class="loading-text">正在加载数据... <span style="font-size:11px;color:#999">v2026.06.23b</span></div>
+  <div class="loading-text">正在加载数据... <span style="font-size:11px;color:#999">v2026.06.23c</span></div>
 </div>
 
 <div class="top-bar">
@@ -1647,6 +1647,9 @@ function confirmShip(orderId) {
     });
     if (confirmerName) addConfirmer(confirmerName);
     pendingOuts = pendingOuts.filter(o => o.id !== orderId);
+    // 【关键】立即持久化到 localStorage，确保刷新不丢失
+    try { localStorage.setItem('inventory_data', JSON.stringify(collectData())); } catch(_) {}
+    try { localStorage.setItem('inventory_cache', JSON.stringify(collectData())); } catch(_) {}
     await save(); renderTable(); updatePendingBadge(); renderPendingList();
     showToast('已确认发货 → ' + order.person + '（' + order.line + '）' + (confirmerName ? '，确认人：' + confirmerName : ''));
   });
@@ -1716,6 +1719,9 @@ function confirmIn(orderId) {
     });
     if (confirmerName) addConfirmer(confirmerName);
     pendingIns = pendingIns.filter(o => o.id !== orderId);
+    // 【关键】立即持久化到 localStorage，确保刷新不丢失
+    try { localStorage.setItem('inventory_data', JSON.stringify(collectData())); } catch(_) {}
+    try { localStorage.setItem('inventory_cache', JSON.stringify(collectData())); } catch(_) {}
     await save(); renderTable(); updatePendingInBadge(); renderPendingInList();
     showToast('已确认领入' + (confirmerName ? '，确认人：' + confirmerName : ''));
   });
