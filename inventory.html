@@ -290,7 +290,7 @@
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
-  <div class="loading-text">正在加载数据... <span style="font-size:11px;color:#999">v2026.06.23f</span></div>
+  <div class="loading-text">正在加载数据... <span style="font-size:11px;color:#999">v2026.06.23g</span></div>
 </div>
 
 <div class="top-bar">
@@ -707,7 +707,7 @@
 
 <!-- 流水记录模态框 -->
 <div class="modal-overlay" id="historyModal">
-  <div class="modal" style="width:820px">
+  <div class="modal" style="width:95vw;max-width:1400px">
     <h2>出入库流水记录</h2>
     <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
       <input type="text" id="historySearch" placeholder="搜索记录..." oninput="renderHistory()" style="flex:1;min-width:120px">
@@ -719,12 +719,13 @@
       </select>
       <button class="btn-outline" id="clearHistoryBtn" onclick="clearHistory()">清空记录</button>
     </div>
-    <table class="flow-table">
+    <div style="overflow:auto; max-height:60vh">
+    <table class="flow-table" style="min-width:900px">
       <thead>
         <tr>
-          <th>日期</th>
-          <th>辅料名称</th>
-          <th>类型</th>
+          <th style="width:90px">日期</th>
+          <th style="min-width:160px">辅料名称</th>
+          <th style="width:50px">类型</th>
           <th>数量</th>
           <th>领用人</th>
           <th>确认人</th>
@@ -736,6 +737,7 @@
       </thead>
       <tbody id="historyBody"></tbody>
     </table>
+    </div>
   </div>
 </div>
 
@@ -831,7 +833,7 @@
 <div class="sync-status" id="syncStatus" style="display:none">
   <span class="sync-dot online" id="syncDot"></span>
   <span id="syncText">已连接</span>
-  <span style="font-size:10px;color:#aaa;margin-left:8px">v2026.06.23f</span>
+  <span style="font-size:10px;color:#aaa;margin-left:8px">v2026.06.23g</span>
 </div>
 
 <div class="toast" id="toast"></div>
