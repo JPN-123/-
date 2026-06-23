@@ -290,7 +290,7 @@
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
-  <div class="loading-text">正在加载数据...</div>
+  <div class="loading-text">正在加载数据... <span style="font-size:11px;color:#999">v2026.06.23</span></div>
 </div>
 
 <div class="top-bar">
@@ -1176,16 +1176,20 @@ async function save() {
 function switchTab(tab) {
   currentTab = tab;
   document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
-  document.querySelector('.tab-btn[onclick="switchTab(\'' + tab + '\')"]').classList.add('active');
-  document.getElementById('inventoryStats').style.display = tab === 'inventory' ? '' : 'none';
-  document.getElementById('productionStats').style.display = tab === 'production' ? '' : 'none';
+  var tabBtn = document.querySelector('.tab-btn[onclick="switchTab(\'' + tab + '\')"]');
+  if (tabBtn) tabBtn.classList.add('active');
+  var invStats = document.getElementById('inventoryStats');
+  if (invStats) invStats.style.display = tab === 'inventory' ? '' : 'none';
+  var prodStats = document.getElementById('productionStats');
+  if (prodStats) prodStats.style.display = tab === 'production' ? '' : 'none';
   document.querySelectorAll('.inv-section').forEach(function(el) { el.style.display = tab === 'inventory' ? '' : 'none'; });
   document.querySelectorAll('.plan-section').forEach(function(el) { el.style.display = tab === 'production' ? '' : 'none'; });
   if (tab === 'production') {
-    document.getElementById('planDateFilter').value = today();
-    renderPlans();
+    var pdf = document.getElementById('planDateFilter');
+    if (pdf) pdf.value = today();
+    if (typeof renderPlans === 'function') renderPlans();
   } else {
-    renderTable();
+    if (typeof renderTable === 'function') renderTable();
   }
 }
 
@@ -1736,7 +1740,8 @@ function sortBy(field) {
 
 // ========== 渲染表格 ==========
 function renderTable() {
-  const search = document.getElementById('searchInput').value.trim().toLowerCase();
+  var si = document.getElementById('searchInput');
+  var search = si ? si.value.trim().toLowerCase() : '';
   let filtered = items.filter(i =>
     i.name.toLowerCase().includes(search) ||
     i.id.toString().includes(search) ||
@@ -2206,9 +2211,16 @@ window.addEventListener('message', function(e) {
     showApp();
   } catch (e) {
     console.error('Init error:', e);
-    showToast('初始化失败，请刷新页面重试');
+    showToast('初始化出错，正在尝试恢复...');
   } finally {
     document.getElementById('loadingOverlay').classList.add('hidden');
+    // 【兜底】无论 showApp() 是否出错，都强制渲染一次表格
+    try {
+      if (typeof renderTable === 'function') renderTable();
+      if (typeof updateStats === 'function') updateStats();
+    } catch(e2) {
+      console.error('Fallback render error:', e2);
+    }
   }
   // 每 15 秒自动同步一次
   setInterval(refreshData, 15000);
