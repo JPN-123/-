@@ -1107,6 +1107,14 @@ function applyData(data) {
   if (!data.users || data.users.length === 0) {
     users = [{ username: 'admin', password: '8888', role: 'super' }];
   }
+  // 立即刷新 UI（如果 DOM 已就绪）
+  if (document.readyState !== 'loading') {
+    try { if (typeof renderTable === 'function') renderTable(); } catch(_) {}
+    try { if (typeof updateStats === 'function') updateStats(); } catch(_) {}
+    try { if (typeof updatePendingBadge === 'function') updatePendingBadge(); } catch(_) {}
+    try { if (typeof updatePendingInBadge === 'function') updatePendingInBadge(); } catch(_) {}
+    try { if (typeof refreshPersonDatalist === 'function') refreshPersonDatalist(); } catch(_) {}
+  }
 }
 
 function collectData() {
