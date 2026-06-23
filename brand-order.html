@@ -381,9 +381,9 @@
             <tr>
               <th style="width:30px">#</th>
               <th>日期*</th>
-              <th>订单单号</th>
+              <th style="min-width:130px">订单单号</th>
               <th>料号</th>
-              <th>品名</th>
+              <th style="min-width:120px">品名</th>
               <th style="width:60px">数量</th>
               <th>开单时间</th>
               <th>备注</th>
@@ -632,6 +632,11 @@ function applyData(data) {
   pendingOuts = data.pendingOuts || [];
   pendingIns = data.pendingIns || [];
   nextId = data.nextId || 1001;
+  // 【防重复】数据加载后确保 nextId 大于所有已有订单 ID
+  if (data.brandOrders && data.brandOrders.length > 0) {
+    var _maxBrandId = Math.max(0, ...data.brandOrders.map(function(x){return x.id||0;}));
+    if (nextId <= _maxBrandId) { nextId = _maxBrandId + 1; }
+  }
   nextOutId = data.nextOutId || 1;
   users = data.users || [];
   productionPlans = data.productionPlans || [];
@@ -1433,6 +1438,9 @@ function submitOrder() {
         return;
       }
     } else {
+      // 【防重复ID】确保新ID不与现有订单冲突
+      var _maxExisting = Math.max(0, ...brandOrders.map(function(x){return x.id||0;}));
+      if (nextId <= _maxExisting) { nextId = _maxExisting + 1; }
       o.id = nextId++;
       o.createTime = new Date().toISOString();
       brandOrders.push(o);
