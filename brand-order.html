@@ -235,7 +235,7 @@
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
-  <p style="color:#666;font-size:14px">加载中... <span style="font-size:11px;color:#aaa">v2026.06.23e</span></p>
+  <p style="color:#666;font-size:14px">加载中... <span style="font-size:11px;color:#aaa">v2026.06.23f</span></p>
 </div>
 
 <div class="header" id="appHeader" style="display:none">
@@ -512,6 +512,7 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 <script>
 // ========== 常量 ==========
 const GIST_ID_KEY = 'inventory_gist_id';
@@ -1837,26 +1838,28 @@ function exportInboundHistory() {
     });
   }
   var headers = ['入库时间','订单单号','料号','品名','仓库','订单数量','调入数量','调入单号','操作人'];
-  var rows = filtered.map(function(r) {
-    return [
-      r.createTime ? r.createTime.replace('T', ' ').substr(0, 19) : '',
-      r.orderNo || '',
-      r.materialNo || '',
-      r.productName || '',
-      r.warehouse || '',
-      r.qty || 0,
-      r.inboundQty || 0,
-      r.transferNo || '',
-      r.operator || ''
-    ];
+  var xlsxRows = filtered.map(function(r) {
+    return {
+      '入库时间': r.createTime ? r.createTime.replace('T', ' ').substr(0, 19) : '',
+      '订单单号': r.orderNo || '',
+      '料号': r.materialNo || '',
+      '品名': r.productName || '',
+      '仓库': r.warehouse || '',
+      '订单数量': r.qty || 0,
+      '调入数量': r.inboundQty || 0,
+      '调入单号': r.transferNo || '',
+      '操作人': r.operator || ''
+    };
   });
-  var csv = '\uFEFF' + headers.join('\t') + '\n';
-  rows.forEach(function(row) { csv += row.join('\t') + '\n'; });
-  var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  var link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = '入库流水_' + new Date().toISOString().split('T')[0] + '.csv';
-  link.click();
+  // 使用 XLSX 生成真正的 .xlsx 文件，分列显示
+  var ws = XLSX.utils.json_to_sheet(xlsxRows);
+  ws['!cols'] = [
+    { wch: 20 }, { wch: 26 }, { wch: 18 }, { wch: 28 },
+    { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 22 }, { wch: 10 }
+  ];
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '入库流水');
+  XLSX.writeFile(wb, '入库流水_' + new Date().toISOString().split('T')[0] + '.xlsx');
   showToast('已导出 ' + filtered.length + ' 条入库流水');
 }
 
@@ -1902,106 +1905,39 @@ function exportToExcel() {
   }
   filtered.sort(function(a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
 
-  // 构建Excel XML，支持合并单元格的分组表头
-  var cols = [
-    {sub:'日期', key:'date', grp:0},
-    {sub:'订单单号', key:'orderNo', grp:0},
-    {sub:'料号', key:'materialNo', grp:0},
-    {sub:'品名', key:'productName', grp:0},
-    {sub:'数量', key:'qty', grp:0},
-    {sub:'开单时间', key:'orderTime', grp:0},
-    {sub:'备注', key:'remark', grp:0},
-    {sub:'仓库', key:'warehouse', grp:0},
-    {sub:'日期', key:'mesDate', grp:1},
-    {sub:'线体', key:'line', grp:1},
-    {sub:'下发时间', key:'dispatchTime', grp:1},
-    {sub:'波次号', key:'dispatchNo', grp:1},
-    {sub:'订单状态', key:'orderStatus', grp:1},
-    {sub:'排产日期', key:'scheduleDate', grp:1},
-    {sub:'状况', key:'mesStatus', grp:2},
-    {sub:'排产备注', key:'planRemark', grp:2},
-    {sub:'完工数量', key:'completedQty', grp:2}
-  ];
-  var groups = ['订单信息', 'MES排产', 'MES入库'];
-
-  // 构建分组表头合并单元格
-  function cellXml(r, c, val, merge) {
-    var attr = '';
-    if (merge) {
-      attr = ' ss:MergeAcross="' + (merge - 1) + '"';
-    }
-    return '<Cell ss:StyleID="hd"' + attr + '><Data ss:Type="String">' + escXml(val) + '</Data></Cell>';
-  }
-  function escXml(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-  function dataCell(val, isNum) {
-    if (isNum) {
-      return '<Cell ss:StyleID="num"><Data ss:Type="Number">' + (val || 0) + '</Data></Cell>';
-    }
-    return '<Cell><Data ss:Type="String">' + escXml(val) + '</Data></Cell>';
-  }
-
-  // 分组表头行：订单信息(8列) | MES排产(6列) | MES入库(3列)
-  var row1 = '<Row ss:Height="22">';
-  var grpStart = 0;
-  for (var g = 0; g < groups.length; g++) {
-    var grpLen = cols.filter(function(c) { return c.grp === g; }).length;
-    row1 += cellXml(0, grpStart, groups[g], grpLen);
-    grpStart += grpLen;
-  }
-  row1 += '</Row>';
-
-  // 子表头行
-  var row2 = '<Row ss:Height="20">';
-  cols.forEach(function(c) { row2 += cellXml(0, 0, c.sub); });
-  row2 += '</Row>';
-
-  // 数据行
-  var dataRows = '';
-  filtered.forEach(function(o) {
-    dataRows += '<Row>';
-    cols.forEach(function(c) {
-      var isNum = (c.key === 'qty' || c.key === 'completedQty');
-      dataRows += dataCell(o[c.key], isNum);
-    });
-    dataRows += '</Row>';
+  // 使用 XLSX 生成真正的 .xlsx 文件
+  var xlsxRows = filtered.map(function(o) {
+    return {
+      '日期': o.date || '',
+      '订单单号': o.orderNo || '',
+      '料号': o.materialNo || '',
+      '品名': o.productName || '',
+      '数量': o.qty || 0,
+      '开单时间': o.orderTime || '',
+      '备注': o.remark || '',
+      '仓库': o.warehouse || '',
+      'MES日期': o.mesDate || '',
+      '线体': o.line || '',
+      '下发时间': o.dispatchTime || '',
+      '波次号': o.dispatchNo || '',
+      '订单状态': o.orderStatus || '',
+      '排产日期': o.scheduleDate || '',
+      '状况': o.mesStatus || '',
+      '排产备注': o.planRemark || '',
+      '完工数量': o.completedQty || 0
+    };
   });
 
-  var xml = '<?xml version="1.0" encoding="UTF-8"?>' +
-    '<?mso-application progid="Excel.Sheet"?>' +
-    '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"' +
-    ' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' +
-    '<Styles>' +
-    '<Style ss:ID="hd"><Font ss:Bold="1" ss:Size="11" ss:Color="#FFFFFF"/><Interior ss:Color="#4472C4" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center"/></Style>' +
-    '<Style ss:ID="num"><Alignment ss:Horizontal="Right"/></Style>' +
-    '</Styles>' +
-    '<Worksheet ss:Name="BRAND订单">' +
-    '<Table>' +
-    '<Column ss:Width="80"/>' + // 日期
-    '<Column ss:Width="120"/>' + // 订单单号
-    '<Column ss:Width="100"/>' + // 料号
-    '<Column ss:Width="140"/>' + // 品名
-    '<Column ss:Width="60"/>' + // 数量
-    '<Column ss:Width="80"/>' + // 开单时间
-    '<Column ss:Width="120"/>' + // 备注
-    '<Column ss:Width="60"/>' + // 仓库
-    '<Column ss:Width="80"/>' + // MES排产日期
-    '<Column ss:Width="60"/>' + // 线体
-    '<Column ss:Width="80"/>' + // 下发时间
-    '<Column ss:Width="80"/>' + // 波次号
-    '<Column ss:Width="80"/>' + // 订单状态
-    '<Column ss:Width="80"/>' + // 排产日期
-    '<Column ss:Width="60"/>' + // 状况
-    '<Column ss:Width="100"/>' + // 排产备注
-    '<Column ss:Width="70"/>' + // 完工数量
-    row1 + row2 + dataRows +
-    '</Table></Worksheet></Workbook>';
-
-  var blob = new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8' });
-  var link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = 'BRAND订单_' + new Date().toISOString().split('T')[0] + '.xls';
-  link.click();
-  URL.revokeObjectURL(link.href);
+  var ws = XLSX.utils.json_to_sheet(xlsxRows);
+  ws['!cols'] = [
+    { wch: 12 }, { wch: 22 }, { wch: 16 }, { wch: 24 },
+    { wch: 8 }, { wch: 18 }, { wch: 20 }, { wch: 8 },
+    { wch: 12 }, { wch: 8 }, { wch: 18 }, { wch: 14 },
+    { wch: 10 }, { wch: 12 }, { wch: 8 }, { wch: 20 }, { wch: 10 }
+  ];
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'BRAND订单');
+  XLSX.writeFile(wb, 'BRAND订单_' + new Date().toISOString().split('T')[0] + '.xlsx');
   showToast('已导出 ' + filtered.length + ' 条数据');
 }
 
