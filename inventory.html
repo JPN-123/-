@@ -950,130 +950,104 @@ async function _syncToCloud(localData) {
 }
 
 async function loadData() {
-  // 【优先】检查 localStorage 是否已有有效数据（restore.html 恢复的或之前缓存的）
+  // 【Step 1】检查 localStorage 是否有有效数据（items 数量 > 0）
   var _localKeys = ['inventory_data', 'inventory_cache'];
+  var _hasLocal = false;
   for (var _li = 0; _li < _localKeys.length; _li++) {
     var _raw = localStorage.getItem(_localKeys[_li]);
     if (_raw) {
       try {
         var _ld = JSON.parse(_raw);
-        if (_ld.items && _ld.items.length > 0) {
+        if (_ld.items && Array.isArray(_ld.items) && _ld.items.length > 0) {
           applyData(_ld);
           dataLoaded = true;
-          setSyncStatus('offline', '使用本地数据 (' + _ld.items.length + '条)');
-          // 异步尝试同步云端（不阻塞显示）
+          setSyncStatus('offline', '本地数据 (' + _ld.items.length + '条)');
           _syncToCloud(_ld);
           return;
         }
-      } catch(_) {}
+        // 有数据但 items 为空或无效 → 清掉，避免干扰
+        console.warn('localStorage key "' + _localKeys[_li] + '" has invalid data, removing');
+        localStorage.removeItem(_localKeys[_li]);
+      } catch(e) {
+        localStorage.removeItem(_localKeys[_li]);
+      }
     }
   }
 
-  // 无任何本地数据时，尝试从 Gist raw URL 直接获取（CORS 已确认允许）
+  // 【Step 2】无有效本地数据 → 从 Gist raw URL 获取（CORS 允许，不需要 Token）
   var _rawUrl = 'https://gist.githubusercontent.com/JPN-123/8cd0ec9b1c7ba76a3186a4db9f6d8e80/raw/inventory_data.json';
+  setSyncStatus('syncing', '正在从云端恢复数据...');
   try {
-    setSyncStatus('syncing', '正在从云端获取数据...');
-    var _rawRes = await fetch(_rawUrl);
-    if (_rawRes.ok) {
-      var _rawText = await _rawRes.text();
-      var _remoteData = JSON.parse(_rawText);
-      if (_remoteData.items && _remoteData.items.length > 0) {
-        applyData(_remoteData);
+    var _rr = await fetch(_rawUrl, { mode: 'cors' });
+    if (_rr.ok) {
+      var _rt = await _rr.text();
+      var _rd = JSON.parse(_rt);
+      if (_rd.items && _rd.items.length > 0) {
+        applyData(_rd);
         dataLoaded = true;
-        // 缓存到两个 key，确保下次能读到
-        try { localStorage.setItem('inventory_data', JSON.stringify(_remoteData)); } catch(_) {}
-        try { localStorage.setItem('inventory_cache', _rawText); } catch(_) {}
-        setSyncStatus('offline', '已从云端恢复 (' + _remoteData.items.length + '条)');
-        showToast('数据恢复成功！' + _remoteData.items.length + ' 条物品', 'success');
+        // 缓存到两个 key
+        try { localStorage.setItem('inventory_data', JSON.stringify(_rd)); } catch(_) {}
+        try { localStorage.setItem('inventory_cache', _rt); } catch(_) {}
+        setSyncStatus('offline', '已恢复 (' + _rd.items.length + '条)');
+        showToast('✅ 数据恢复成功！' + _rd.items.length + ' 条物品', 'success');
         return;
       }
     }
   } catch(e) {
-    console.log('Raw URL fallback failed:', e.message);
+    console.log('Raw URL fetch error:', e.message);
   }
 
-  // 所有远程方式都失败，走本地默认数据
-  if (!GITHUB_TOKEN) {
-    // 无 token 时使用本地默认数据
-    setSyncStatus('offline', '本地模式');
-    const defaultData = getDefaultData();
-    applyData(defaultData);
-    dataLoaded = true;
-    return;
+  // 【Step 3】全部失败 → 显示恢复按钮，让用户手动触发
+  setSyncStatus('error', '无数据');
+  const defaultData = getDefaultData();
+  applyData(defaultData);
+  dataLoaded = true;
+  // 显示醒目的恢复按钮
+  var _banner = document.getElementById('recoverBanner');
+  if (!_banner) {
+    _banner = document.createElement('div');
+    _banner.id = 'recoverBanner';
+    _banner.style.cssText = 'background:linear-gradient(135deg,#ea4335,#c5221f);color:#fff;padding:20px;text-align:center;margin:16px;border-radius:12px;font-size:15px;cursor:pointer;box-shadow:0 4px 16px rgba(234,67,53,0.4);animation:pulse 2s infinite;';
+    _banner.innerHTML = '<div style="font-size:24px;margin-bottom:8px;">⚠️ 数据为空</div>' +
+      '<div style="margin-bottom:12px;">辅料库存数据未加载到</div>' +
+      '<div style="background:rgba(255,255,255,0.2);padding:10px 16px;border-radius:8px;display:inline-block;font-weight:bold;">👆 点击此处一键恢复数据（68条物品）</div>';
+    _banner.onclick = function() {
+      _banner.innerHTML = '<div style="font-size:18px;">⏳ 正在从 GitHub 下载数据...</div><div style="font-size:13px;margin-top:8px;">请稍候约 3-5 秒</div>';
+      _doManualRecover(_banner);
+    };
+    // 插入到表格上方
+    var tbl = document.querySelector('.table-container') || document.getElementById('tableArea') || document.querySelector('main') || document.body;
+    tbl.insertBefore(_banner, tbl.firstChild);
   }
-  const id = getGistId();
-  if (!id) { await createNewGist(); return; }
-  gistId = id;
 
-  /* 加载失败时的降级函数 */
-  var _tryCache = function(msg) {
-    var cached = localStorage.getItem(CACHE_KEY);
-    if (cached) {
-      try {
-        var data = JSON.parse(cached);
-        applyData(data);
-        dataLoaded = true;
-        setSyncStatus('offline', '使用本地缓存');
-        showToast(msg + '，已切换本地缓存');
-        return;
-      } catch(_) {}
-    }
-    var defaultData = getDefaultData();
-    applyData(defaultData);
-    dataLoaded = true;
-  };
+  // 手动恢复函数
+  async function _doManualRecover(banner) {
+    try {
+      var res2 = await fetch(_rawUrl, { mode: 'cors' });
+      if (!res2.ok) throw new Error('网络请求失败 HTTP ' + res2.status);
+      var txt = await res2.text();
+      var d2 = JSON.parse(txt);
+      if (!d2.items || d2.items.length === 0) throw new Error('云端数据为空');
 
-  try {
-    const res = await fetch(GIST_API + '/' + gistId, {
-      headers: apiHeaders()
-    });
-    if (res.ok) {
-      const gist = await res.json();
-      const file = gist.files && gist.files[GIST_FILENAME];
-      if (file && file.content) {
-        var rawContent = file.content;
-        // GitHub API 对超过1MB的文件会截断，需通过 raw_url 获取完整内容
-        if (file.truncated && file.raw_url) {
-          setSyncStatus('syncing', '加载完整数据...');
-          const rawRes = await fetch(file.raw_url, { headers: apiHeaders() });
-          if (rawRes.ok) {
-            rawContent = await rawRes.text();
-          } else {
-            throw new Error('无法获取完整数据 (raw_url fetch failed: ' + rawRes.status + ')');
-          }
-        }
-        const data = JSON.parse(rawContent);
-        applyData(data);
-        dataLoaded = true;
-        setSyncStatus('online', '已连接');
-        // 加载成功后缓存到本地
-        try { localStorage.setItem(CACHE_KEY, rawContent); } catch(_) {}
-      } else {
-        // Gist 存在但文件缺失，创建新数据
-        setSyncStatus('error', '数据文件缺失');
-        showToast('云端数据文件缺失，正在重建...');
-        await createNewGist();
-      }
-    } else if (res.status === 401 || res.status === 403) {
-      setSyncStatus('error', 'Token 无效');
-      showToast('GitHub Token 已失效，请联系管理员更新 Token');
-      _tryCache('Token 无效');
-    } else if (res.status === 404) {
-      if (gistId === PRESET_GIST_ID) {
-        setSyncStatus('error', '数据未找到');
-        showToast('云端数据不存在，正在创建新数据...');
-        await createNewGist();
-      } else {
-        _tryCache('无法访问云端数据（可能是Token过期），已切换本地缓存');
-      }
-    } else {
-      setSyncStatus('error', '加载失败(' + res.status + ')');
-      _tryCache('加载云端数据失败(HTTP ' + res.status + ')');
+      // 写入存储
+      localStorage.setItem('inventory_data', JSON.stringify(d2));
+      localStorage.setItem('inventory_cache', txt);
+
+      banner.style.cssText = 'background:linear-gradient(135deg,#34a853,#2e7d32);color:#fff;padding:20px;text-align:center;margin:16px;border-radius:12px;';
+      banner.innerHTML = '<div style="font-size:24px;">✅ 恢复成功！</div>' +
+        '<div>📦 物品：' + d2.items.length + ' 条 | 📋 历史：' + (d2.history||[]).length + ' 条</div>' +
+        '<div style="margin-top:12px;"><button onclick="location.reload()" style="background:#fff;color:#2e7d32;border:none;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer;">🔄 刷新页面查看数据</button></div>';
+
+      // 同时应用数据
+      applyData(d2);
+      dataLoaded = true;
+      setSyncStatus('offline', '已恢复 (' + d2.items.length + '条)');
+    } catch(e2) {
+      banner.style.background = '#c5221f';
+      banner.innerHTML = '<div style="font-size:20px;">❌ 恢复失败</div>' +
+        '<div style="font-size:13px;margin-top:8px;">' + e2.message + '</div>' +
+        '<div style="margin-top:12px;"><button onclick="location.reload()" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);padding:8px 20px;border-radius:6px;cursor:pointer;">🔄 重试</button></div>';
     }
-  } catch (e) {
-    console.error('Load error:', e);
-    setSyncStatus('error', '连接失败');
-    _tryCache('连接云端失败');
   }
 }
 
