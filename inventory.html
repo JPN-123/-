@@ -290,7 +290,7 @@
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
-  <div class="loading-text">正在加载数据... <span style="font-size:11px;color:#999">v2026.06.23c</span></div>
+  <div class="loading-text">正在加载数据... <span style="font-size:11px;color:#999">v2026.06.23d</span></div>
 </div>
 
 <div class="top-bar">
@@ -975,10 +975,11 @@ async function loadData() {
   }
 
   // 【Step 2】无有效本地数据 → 从 Gist raw URL 获取（CORS 允许，不需要 Token）
-  var _rawUrl = 'https://gist.githubusercontent.com/JPN-123/8cd0ec9b1c7ba76a3186a4db9f6d8e80/raw/inventory_data.json';
+  // 加 cache-busting 参数避免 CDN 缓存旧数据
+  var _rawUrl = 'https://gist.githubusercontent.com/JPN-123/8cd0ec9b1c7ba76a3186a4db9f6d8e80/raw/inventory_data.json?t=' + Date.now();
   setSyncStatus('syncing', '正在从云端恢复数据...');
   try {
-    var _rr = await fetch(_rawUrl, { mode: 'cors' });
+    var _rr = await fetch(_rawUrl, { mode: 'cors', cache: 'no-cache' });
     if (_rr.ok) {
       var _rt = await _rr.text();
       var _rd = JSON.parse(_rt);
@@ -2156,7 +2157,7 @@ async function refreshData() {
       if (file && file.content) {
         var rawContent = file.content;
         if (file.truncated && file.raw_url) {
-          const rawRes = await fetch(file.raw_url, { headers: apiHeaders() });
+          const rawRes = await fetch(file.raw_url + '?t=' + Date.now(), { headers: apiHeaders(), cache: 'no-cache' });
           if (rawRes.ok) { rawContent = await rawRes.text(); }
           else { return; }
         }
