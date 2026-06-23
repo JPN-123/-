@@ -235,7 +235,7 @@
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
-  <p style="color:#666;font-size:14px">加载中...</p>
+  <p style="color:#666;font-size:14px">加载中... <span style="font-size:11px;color:#aaa">v2026.06.23e</span></p>
 </div>
 
 <div class="header" id="appHeader" style="display:none">
@@ -753,6 +753,28 @@ async function loadData() {
     setTimeout(function() { loadData(); }, 5000);
   };
 
+  // 【兜底】从 Gist raw URL 获取数据（不需要 Token，CORS 允许）
+  var _tryRawUrl = async function() {
+    var _rawUrl = 'https://gist.githubusercontent.com/JPN-123/' + gistId + '/raw/' + GIST_FILENAME + '?t=' + Date.now();
+    try {
+      setSyncStatus('syncing', '正在从云端恢复数据...');
+      var _rr = await fetch(_rawUrl, { mode: 'cors', cache: 'no-cache' });
+      if (_rr.ok) {
+        var _rawText = await _rr.text();
+        var _rawData = JSON.parse(_rawText);
+        applyData(_rawData);
+        dataLoaded = true;
+        try { localStorage.setItem(CACHE_KEY, _rawText); } catch(_) {}
+        setSyncStatus('offline', '使用云端数据(只读)');
+        showToast('Token已失效，已从云端获取最新数据（只读模式）');
+        return true;
+      }
+    } catch(e) {
+      console.error('[loadData] raw URL fallback error:', e);
+    }
+    return false;
+  };
+
   try {
     const res = await fetch(GIST_API + '/' + gistId, {
       headers: apiHeaders()
@@ -766,7 +788,7 @@ async function loadData() {
         if (!content || file.truncated) {
           console.log('[loadData] File truncated (' + file.size + ' bytes), fetching from raw_url...');
           try {
-            var rawRes = await fetch(file.raw_url);
+            var rawRes = await fetch(file.raw_url + '?t=' + Date.now(), { cache: 'no-cache' });
             if (rawRes.ok) {
               content = await rawRes.text();
               console.log('[loadData] Raw fetch complete: ' + content.length + ' chars');
@@ -800,8 +822,12 @@ async function loadData() {
       } else { await createNewGist(); }
     } else if (res.status === 401 || res.status === 403) {
       setSyncStatus('error', 'Token 无效');
-      showToast('GitHub Token 已失效，请联系管理员更新 Token');
-      _tryCache('Token 无效');
+      // 【兜底】Token失效时尝试从 raw URL 获取数据（不需要Token）
+      var _rawOk = await _tryRawUrl();
+      if (!_rawOk) {
+        showToast('GitHub Token 已失效，请联系管理员更新 Token');
+        _tryCache('Token 无效');
+      }
     } else if (res.status === 404) {
       // 私有 Gist 无 token 时也返回 404！只有初次使用（PRESET Gist）才创建新的
       if (gistId === PRESET_GIST_ID) {
@@ -825,6 +851,8 @@ async function save() {
   if (!gistId || !dataLoaded) return null;  // 返回 null 表示保存未执行
   _localDirty = true;
   clearTimeout(saveTimer);
+  // 【加固】立即写入 localStorage，无论云端是否成功都不丢数据
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(collectData())); } catch(_) {}
   return new Promise((resolve) => {
     saveTimer = setTimeout(async () => {
       if (isSaving) { resolve(false); return; }
@@ -1457,6 +1485,8 @@ function submitOrder() {
     }
   });
   _localDirty = true;  // 先标记脏数据，防止 loadData 覆盖本地修改
+  // 【关键】立即持久化到 localStorage，确保刷新不丢失
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(collectData())); } catch(_) {}
 
   var savePromise = save();
   if (savePromise === null) {
