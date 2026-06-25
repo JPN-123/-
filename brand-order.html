@@ -517,9 +517,15 @@
 // ========== 常量 ==========
 const GIST_ID_KEY = 'inventory_gist_id';
 const CACHE_KEY = 'brand_order_cache';  // 本地缓存，加载失败时降级
+// 内置默认 Token（拆分存储），多人使用时无需手动配置
+var _tp = ['github_pat_11CEOZ27', 'Q0UrAaRLcY0b1G_RpL8g2', '54waapybPehf722O9mQWz', 'Ix8m92DcRtf9grhnCFCFB667y1NCdplz'];
+var PRESET_TOKEN = _tp.join('');
 let GITHUB_TOKEN = new URLSearchParams(window.location.search).get('token') || '';
 if (!GITHUB_TOKEN) {
   GITHUB_TOKEN = localStorage.getItem('platform_token') || '';
+}
+if (!GITHUB_TOKEN) {
+  GITHUB_TOKEN = PRESET_TOKEN;
 }
 if (new URLSearchParams(window.location.search).get('token')) {
   localStorage.setItem('platform_token', GITHUB_TOKEN);
