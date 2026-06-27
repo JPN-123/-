@@ -1993,12 +1993,11 @@ window.addEventListener('message', function(e) {
 // ========== 初始化 ==========
 (async function init() {
   initLoadPromise = loadData();
+  var _timeout = new Promise(function(resolve) { setTimeout(resolve, 8000); });
   try {
-    await initLoadPromise;
+    await Promise.race([initLoadPromise, _timeout]);
     dataLoaded = true;
-    // login handled by parent platform; also works standalone
     showApp();
-    // 一次性迁移：从JSON导入历史入库流水
     if (inboundRecords.length === 0) {
       runInboundMigration();
     }
