@@ -2218,10 +2218,11 @@ window.addEventListener('message', function(e) {
 // ========== 初始化 ==========
 (async function init() {
   initLoadPromise = loadData();
+  // 加超时保护，8秒后无论如何都显示界面
+  var _timeout = new Promise(function(resolve) { setTimeout(resolve, 8000); });
   try {
-    await initLoadPromise;
+    await Promise.race([initLoadPromise, _timeout]);
     dataLoaded = true;
-    // login handled by parent platform; also works standalone
     showApp();
   } catch (e) {
     console.error('Init error:', e);
