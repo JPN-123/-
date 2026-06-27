@@ -580,7 +580,7 @@ function switchModule(name) {
     groupToggle.classList.remove('active');
   }
   // 构建 iframe URL（加 v 参数绕过缓存）
-  let url = modules[name] + '?v=20260615a';
+  let url = modules[name] + '?v=20260627a';
   // 透传 token
   if (GITHUB_TOKEN) {
     url += '&token=' + encodeURIComponent(GITHUB_TOKEN);
@@ -690,13 +690,21 @@ function notifyIframe(type, data) {
 
 // ========== 初始化 ==========
 (async function init() {
-  const ok = await loadGistData();
+  // 加超时保护，防止网络请求卡死导致一直加载
+  var _timeout = new Promise(function(resolve) { setTimeout(function() { resolve('timeout'); }, 8000); });
+  var _result = await Promise.race([loadGistData(), _timeout]);
+  var ok = (_result === true);
+
   document.getElementById('loadingOverlay').classList.add('hidden');
 
   if (!ok) {
     // Token 缺失或 Gist 加载失败，使用本地默认用户
     users = [{ username: 'admin', password: '8888', role: 'super' }];
-    showToast('未配置 Token，使用本地默认账号（admin / 8888）');
+    if (_result === 'timeout') {
+      showToast('网络较慢，使用本地默认账号登录（admin / 8888）');
+    } else {
+      showToast('未配置 Token，使用本地默认账号（admin / 8888）');
+    }
   }
 
   document.getElementById('loginOverlay').classList.remove('hidden');
