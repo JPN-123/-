@@ -235,7 +235,7 @@
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
-  <p style="color:#666;font-size:14px">加载中... <span style="font-size:11px;color:#aaa">v2026.06.27a</span></p>
+  <p style="color:#666;font-size:14px">加载中... <span style="font-size:11px;color:#aaa">v2026.06.27b</span></p>
 </div>
 
 <div class="header" id="appHeader" style="display:none">
@@ -521,11 +521,6 @@ const CACHE_KEY = 'brand_order_cache';  // 本地缓存，加载失败时降级
 var _tp = ['github_pat_11CEOZ27', 'Q0UrAaRLcY0b1G_RpL8g2', '54waapybPehf722O9mQWz', 'Ix8m92DcRtf9grhnCFCFB667y1NCdplz'];
 var PRESET_TOKEN = _tp.join('');
 let GITHUB_TOKEN = new URLSearchParams(window.location.search).get('token') || '';
-if (!GITHUB_TOKEN) {
-  var _stored = localStorage.getItem('platform_token') || '';
-  if (_stored && _stored.startsWith('ghp_')) _stored = ''; // 旧版 Token 已失效
-  GITHUB_TOKEN = _stored;
-}
 if (!GITHUB_TOKEN) {
   GITHUB_TOKEN = PRESET_TOKEN;
 }
