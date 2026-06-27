@@ -290,7 +290,7 @@
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
-  <div class="loading-text">正在加载数据... <span style="font-size:11px;color:#999">v2026.06.25a</span></div>
+  <div class="loading-text">正在加载数据... <span style="font-size:11px;color:#999">v2026.06.27a</span></div>
 </div>
 
 <div class="top-bar">
@@ -833,7 +833,7 @@
 <div class="sync-status" id="syncStatus" style="display:none">
   <span class="sync-dot online" id="syncDot"></span>
   <span id="syncText">已连接</span>
-  <span style="font-size:10px;color:#aaa;margin-left:8px">v2026.06.25a</span>
+  <span style="font-size:10px;color:#aaa;margin-left:8px">v2026.06.27a</span>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -853,7 +853,9 @@ var _tp = ['github_pat_11CEOZ27', 'Q0UrAaRLcY0b1G_RpL8g2', '54waapybPehf722O9mQW
 var PRESET_TOKEN = _tp.join('');
 let GITHUB_TOKEN = new URLSearchParams(window.location.search).get('token') || '';
 if (!GITHUB_TOKEN) {
-  GITHUB_TOKEN = localStorage.getItem('platform_token') || '';
+  var _stored = localStorage.getItem('platform_token') || '';
+  if (_stored && _stored.startsWith('ghp_')) _stored = ''; // 旧版 Token 已失效
+  GITHUB_TOKEN = _stored;
 }
 if (!GITHUB_TOKEN) {
   GITHUB_TOKEN = PRESET_TOKEN;
@@ -950,9 +952,9 @@ async function _syncToCloud(localData) {
 }
 
 async function loadData() {
-  // 【Step 1】检查 localStorage 是否有有效数据（items 数量 > 0）
+  // 【Step 0】如果有本地缓存，先快速显示（不阻塞UI）
   var _localKeys = ['inventory_data', 'inventory_cache'];
-  var _hasLocal = false;
+  var _localShown = false;
   for (var _li = 0; _li < _localKeys.length; _li++) {
     var _raw = localStorage.getItem(_localKeys[_li]);
     if (_raw) {
@@ -961,23 +963,17 @@ async function loadData() {
         if (_ld.items && Array.isArray(_ld.items) && _ld.items.length > 0) {
           applyData(_ld);
           dataLoaded = true;
-          setSyncStatus('offline', '本地数据 (' + _ld.items.length + '条)');
-          _syncToCloud(_ld);
-          return;
+          setSyncStatus('syncing', '正在同步云端数据...');
+          _localShown = true;
+          break;
         }
-        // 有数据但 items 为空或无效 → 清掉，避免干扰
-        console.warn('localStorage key "' + _localKeys[_li] + '" has invalid data, removing');
-        localStorage.removeItem(_localKeys[_li]);
-      } catch(e) {
-        localStorage.removeItem(_localKeys[_li]);
-      }
+      } catch(e) {}
     }
   }
 
-  // 【Step 2】无有效本地数据 → 从 Gist raw URL 获取（CORS 允许，不需要 Token）
-  // 加 cache-busting 参数避免 CDN 缓存旧数据
+  // 【Step 1】从云端获取最新数据（raw URL 不需要 Token，CORS 允许）
   var _rawUrl = 'https://gist.githubusercontent.com/JPN-123/8cd0ec9b1c7ba76a3186a4db9f6d8e80/raw/inventory_data.json?t=' + Date.now();
-  setSyncStatus('syncing', '正在从云端恢复数据...');
+  if (!_localShown) setSyncStatus('syncing', '正在从云端加载...');
   try {
     var _rr = await fetch(_rawUrl, { mode: 'cors', cache: 'no-cache' });
     if (_rr.ok) {
@@ -986,16 +982,24 @@ async function loadData() {
       if (_rd.items && _rd.items.length > 0) {
         applyData(_rd);
         dataLoaded = true;
-        // 缓存到两个 key
+        // 缓存到本地
         try { localStorage.setItem('inventory_data', JSON.stringify(_rd)); } catch(_) {}
         try { localStorage.setItem('inventory_cache', _rt); } catch(_) {}
-        setSyncStatus('offline', '已恢复 (' + _rd.items.length + '条)');
-        showToast('✅ 数据恢复成功！' + _rd.items.length + ' 条物品', 'success');
+        setSyncStatus('online', '已连接(' + _rd.items.length + '条)');
+        // 后台同步到 Gist API（如果 Token 有效）
+        _syncToCloud(_rd);
         return;
       }
     }
   } catch(e) {
-    console.log('Raw URL fetch error:', e.message);
+    console.log('Cloud fetch error:', e.message);
+  }
+
+  // 【Step 2】云端失败 → 如果本地已显示，保持本地数据
+  if (_localShown) {
+    setSyncStatus('offline', '本地缓存(网络异常)');
+    showToast('网络异常，使用本地缓存');
+    return;
   }
 
   // 【Step 3】全部失败 → 显示恢复按钮，让用户手动触发
