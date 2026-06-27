@@ -345,7 +345,9 @@ var _tp = ['github_pat_11CEOZ27', 'Q0UrAaRLcY0b1G_RpL8g2', '54waapybPehf722O9mQW
 var PRESET_TOKEN = _tp.join('');
 let GITHUB_TOKEN = new URLSearchParams(window.location.search).get('token') || '';
 if (!GITHUB_TOKEN) {
-  GITHUB_TOKEN = localStorage.getItem('platform_token') || '';
+  var _stored = localStorage.getItem('platform_token') || '';
+  if (_stored && _stored.startsWith('ghp_')) _stored = ''; // 旧版 Token 已失效
+  GITHUB_TOKEN = _stored;
 }
 if (!GITHUB_TOKEN) {
   GITHUB_TOKEN = PRESET_TOKEN;
@@ -391,9 +393,10 @@ document.addEventListener('click', function(e) {
 // ========== Gist 数据操作 ==========
 async function loadGistData() {
   if (!GITHUB_TOKEN) {
-    showToast('未配置 Token，请使用 ?token=xxx 参数访问');
+    showToast('未配置 Token');
     return false;
   }
+  // 先尝试 Gist API（需要 Token）
   try {
     const res = await fetch(GIST_API + '/' + gistId, {
       headers: { 'Authorization': 'token ' + GITHUB_TOKEN, 'Accept': 'application/vnd.github.v3+json' }
@@ -422,9 +425,37 @@ async function loadGistData() {
         return true;
       }
     }
+    // Token 失效或无权限 → 从 raw URL 兜底获取（不需要 Token）
+    if (res.status === 401 || res.status === 403) {
+      console.log('Token invalid, trying raw URL fallback...');
+      var _rawUrl = 'https://gist.githubusercontent.com/JPN-123/' + gistId + '/raw/' + GIST_FILENAME + '?t=' + Date.now();
+      var _rawRes = await fetch(_rawUrl, { cache: 'no-cache' });
+      if (_rawRes.ok) {
+        var _rawContent = await _rawRes.text();
+        gistData = JSON.parse(_rawContent);
+        users = gistData.users || [];
+        if (users.length === 0) {
+          users = [{ username: 'admin', password: '8888', role: 'super' }];
+        }
+        return true;
+      }
+    }
     showToast('数据加载失败');
     return false;
   } catch (e) {
+    // 网络异常 → 尝试 raw URL
+    try {
+      var _rawUrl2 = 'https://gist.githubusercontent.com/JPN-123/' + gistId + '/raw/' + GIST_FILENAME + '?t=' + Date.now();
+      var _rawRes2 = await fetch(_rawUrl2, { cache: 'no-cache' });
+      if (_rawRes2.ok) {
+        gistData = JSON.parse(await _rawRes2.text());
+        users = gistData.users || [];
+        if (users.length === 0) {
+          users = [{ username: 'admin', password: '8888', role: 'super' }];
+        }
+        return true;
+      }
+    } catch(_) {}
     console.error('Load error:', e);
     showToast('网络连接失败');
     return false;
