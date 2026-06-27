@@ -340,15 +340,10 @@
 //  用户数据通过 GitHub Gist 云端存储
 // ============================================================
 
-// Token 获取优先级：URL 参数 > localStorage > 内置默认值
+// Token 获取优先级：URL 参数 > 内置默认值（忽略 localStorage 旧 Token）
 var _tp = ['github_pat_11CEOZ27', 'Q0UrAaRLcY0b1G_RpL8g2', '54waapybPehf722O9mQWz', 'Ix8m92DcRtf9grhnCFCFB667y1NCdplz'];
 var PRESET_TOKEN = _tp.join('');
 let GITHUB_TOKEN = new URLSearchParams(window.location.search).get('token') || '';
-if (!GITHUB_TOKEN) {
-  var _stored = localStorage.getItem('platform_token') || '';
-  if (_stored && _stored.startsWith('ghp_')) _stored = ''; // 旧版 Token 已失效
-  GITHUB_TOKEN = _stored;
-}
 if (!GITHUB_TOKEN) {
   GITHUB_TOKEN = PRESET_TOKEN;
 }
