@@ -290,7 +290,7 @@
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
-  <div class="loading-text">正在加载数据... <span style="font-size:11px;color:#999">v2026.06.27a</span></div>
+  <div class="loading-text">正在加载数据... <span style="font-size:11px;color:#999">v2026.06.27b</span></div>
 </div>
 
 <div class="top-bar">
@@ -833,7 +833,7 @@
 <div class="sync-status" id="syncStatus" style="display:none">
   <span class="sync-dot online" id="syncDot"></span>
   <span id="syncText">已连接</span>
-  <span style="font-size:10px;color:#aaa;margin-left:8px">v2026.06.27a</span>
+  <span style="font-size:10px;color:#aaa;margin-left:8px">v2026.06.27b</span>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -853,16 +853,20 @@ var _tp = ['github_pat_11CEOZ27', 'Q0UrAaRLcY0b1G_RpL8g2', '54waapybPehf722O9mQW
 var PRESET_TOKEN = _tp.join('');
 let GITHUB_TOKEN = new URLSearchParams(window.location.search).get('token') || '';
 if (!GITHUB_TOKEN) {
-  var _stored = localStorage.getItem('platform_token') || '';
-  if (_stored && _stored.startsWith('ghp_')) _stored = ''; // 旧版 Token 已失效
-  GITHUB_TOKEN = _stored;
-}
-if (!GITHUB_TOKEN) {
   GITHUB_TOKEN = PRESET_TOKEN;
 }
 // 如果 URL 带了 token，保存到 localStorage
 if (new URLSearchParams(window.location.search).get('token')) {
   localStorage.setItem('platform_token', GITHUB_TOKEN);
+}
+const GIST_API = 'https://api.github.com/gists';
+const GIST_FILENAME = 'inventory_data.json';
+
+function apiHeaders(extra) {
+  var h = extra ? Object.assign({}, extra) : {};
+  h['Accept'] = 'application/vnd.github.v3+json';
+  if (GITHUB_TOKEN) h['Authorization'] = 'token ' + GITHUB_TOKEN;
+  return h;
 }
 
 let items = [];
@@ -971,9 +975,41 @@ async function loadData() {
     }
   }
 
-  // 【Step 1】从云端获取最新数据（raw URL 不需要 Token，CORS 允许）
-  var _rawUrl = 'https://gist.githubusercontent.com/JPN-123/8cd0ec9b1c7ba76a3186a4db9f6d8e80/raw/inventory_data.json?t=' + Date.now();
+  var _gistId = getGistId() || '8cd0ec9b1c7ba76a3186a4db9f6d8e80';
   if (!_localShown) setSyncStatus('syncing', '正在从云端加载...');
+
+  // 【Step 1】用 GIST API 获取 metadata，提取 commit hash raw_url（不被 CDN 缓存）
+  try {
+    var _apiRes = await fetch(GIST_API + '/' + _gistId, {
+      headers: apiHeaders(),
+      cache: 'no-cache'
+    });
+    if (_apiRes.ok) {
+      var _gist = await _apiRes.json();
+      var _file = _gist.files && _gist.files[GIST_FILENAME];
+      if (_file && _file.raw_url) {
+        var _commitUrl = _file.raw_url + '?t=' + Date.now();
+        var _commitRes = await fetch(_commitUrl, { mode: 'cors', cache: 'no-cache' });
+        if (_commitRes.ok) {
+          var _rt = await _commitRes.text();
+          var _rd = JSON.parse(_rt);
+          if (_rd.items && _rd.items.length > 0) {
+            applyData(_rd);
+            dataLoaded = true;
+            try { localStorage.setItem('inventory_data', JSON.stringify(_rd)); } catch(_) {}
+            try { localStorage.setItem('inventory_cache', _rt); } catch(_) {}
+            setSyncStatus('online', '已连接(' + _rd.items.length + '条)');
+            return;
+          }
+        }
+      }
+    }
+  } catch(e) {
+    console.log('API fetch error:', e.message);
+  }
+
+  // 【Step 2】API 失败 → 回退到 raw URL（可能被 CDN 缓存 5 分钟）
+  var _rawUrl = 'https://gist.githubusercontent.com/JPN-123/' + _gistId + '/raw/' + GIST_FILENAME + '?t=' + Date.now();
   try {
     var _rr = await fetch(_rawUrl, { mode: 'cors', cache: 'no-cache' });
     if (_rr.ok) {
@@ -982,27 +1018,24 @@ async function loadData() {
       if (_rd.items && _rd.items.length > 0) {
         applyData(_rd);
         dataLoaded = true;
-        // 缓存到本地
         try { localStorage.setItem('inventory_data', JSON.stringify(_rd)); } catch(_) {}
         try { localStorage.setItem('inventory_cache', _rt); } catch(_) {}
         setSyncStatus('online', '已连接(' + _rd.items.length + '条)');
-        // 后台同步到 Gist API（如果 Token 有效）
-        _syncToCloud(_rd);
         return;
       }
     }
   } catch(e) {
-    console.log('Cloud fetch error:', e.message);
+    console.log('Raw URL fetch error:', e.message);
   }
 
-  // 【Step 2】云端失败 → 如果本地已显示，保持本地数据
+  // 【Step 3】云端全部失败 → 如果本地已显示，保持本地数据
   if (_localShown) {
     setSyncStatus('offline', '本地缓存(网络异常)');
     showToast('网络异常，使用本地缓存');
     return;
   }
 
-  // 【Step 3】全部失败 → 显示恢复按钮，让用户手动触发
+  // 【Step 4】全部失败 → 显示恢复按钮
   setSyncStatus('error', '无数据');
   const defaultData = getDefaultData();
   applyData(defaultData);
