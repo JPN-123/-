@@ -894,7 +894,9 @@ var _tp = ['github_pat_11CEOZ27', 'Q0UrAaRLcY0b1G_RpL8g2', '54waapybPehf722O9mQW
 var PRESET_TOKEN = _tp.join('');
 let GITHUB_TOKEN = new URLSearchParams(window.location.search).get('token') || '';
 if (!GITHUB_TOKEN) {
-  GITHUB_TOKEN = localStorage.getItem('platform_token') || '';
+  var _stored = localStorage.getItem('platform_token') || '';
+  if (_stored && _stored.startsWith('ghp_')) _stored = ''; // 旧版 Token 已失效
+  GITHUB_TOKEN = _stored;
 }
 if (!GITHUB_TOKEN) {
   GITHUB_TOKEN = PRESET_TOKEN;
