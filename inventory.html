@@ -290,7 +290,7 @@
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
-  <div class="loading-text">正在加载数据... <span style="font-size:11px;color:#999">v2026.06.27b</span></div>
+  <div class="loading-text">正在加载数据... <span style="font-size:11px;color:#999">v2026.06.30</span></div>
 </div>
 
 <div class="top-bar">
@@ -833,7 +833,7 @@
 <div class="sync-status" id="syncStatus" style="display:none">
   <span class="sync-dot online" id="syncDot"></span>
   <span id="syncText">已连接</span>
-  <span style="font-size:10px;color:#aaa;margin-left:8px">v2026.06.27b</span>
+  <span style="font-size:10px;color:#aaa;margin-left:8px">v2026.06.30</span>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -1183,12 +1183,40 @@ function _isLocalNewer(gistData) {
   try {
     var _localRaw = localStorage.getItem(CACHE_KEY) || localStorage.getItem('inventory_data');
     if (!_localRaw) return false;
-    var _localTs = JSON.parse(_localRaw)._savedAt || 0;
+    var _local = JSON.parse(_localRaw);
+    var _localTs = _local._savedAt || 0;
     var _gistTs = (gistData && gistData._savedAt) || 0;
+    // 条件1：本地有 _savedAt 且比云端新超过3秒
     if (_localTs > 0 && _gistTs > 0 && _localTs > _gistTs + 3000) {
       console.log('[loadData] Local _savedAt=' + _localTs + ' > Gist _savedAt=' + _gistTs + ', keeping local');
       return true;
     }
+    // 条件2：本地有 _savedAt 但云端没有（旧云端数据），且本地 history 比云端多 → 本地有未同步记录
+    if (_localTs > 0 && _gistTs === 0) {
+      var _localHistoryLen = (_local.history && _local.history.length) || 0;
+      var _gistHistoryLen = (gistData && gistData.history && gistData.history.length) || 0;
+      if (_localHistoryLen > _gistHistoryLen) {
+        console.log('[loadData] Local has ' + _localHistoryLen + ' history records, Gist has ' + _gistHistoryLen + ', keeping local');
+        return true;
+      }
+      var _localPendingLen = (_local.pendingOuts && _local.pendingOuts.length) || 0;
+      var _gistPendingLen = (gistData && gistData.pendingOuts && gistData.pendingOuts.length) || 0;
+      if (_localPendingLen > _gistPendingLen) {
+        console.log('[loadData] Local has ' + _localPendingLen + ' pendingOuts, Gist has ' + _gistPendingLen + ', keeping local');
+        return true;
+      }
+    }
+    // 条件3：上次 save() 失败过（_localSaveFailedAt 在最近10分钟内），且本地比云端有新数据
+    try {
+      var _failedAt = parseInt(localStorage.getItem('_localSaveFailedAt') || '0');
+      if (_failedAt > 0 && (Date.now() - _failedAt) < 600000) {
+        // 上次保存失败过，且本地有 _savedAt（说明本地数据是新的）
+        if (_localTs > _gistTs) {
+          console.log('[loadData] Previous save failed and local is newer, keeping local');
+          return true;
+        }
+      }
+    } catch(_) {}
   } catch(_) {}
   return false;
 }
@@ -1248,12 +1276,17 @@ async function save() {
         else {
           console.error('Save PATCH failed:', res.status);
           setSyncStatus('error', '云端保存失败(' + res.status + ')，数据已保存在浏览器本地');
-          _localDirty = false;
+          // 【关键修复】保存失败时不能清掉 _localDirty，否则定时刷新会用旧Gist覆盖本地新数据
+          // 同时记录 _localSaveFailedAt 时间戳，让 loadData/refreshData 知道本地有未同步数据
+          _localDirty = true;
+          try { localStorage.setItem('_localSaveFailedAt', String(Date.now())); } catch(_) {}
         }
       } catch (e) {
         console.error('Save error:', e);
         setSyncStatus('error', '云端保存失败，数据已保存在浏览器本地');
-        _localDirty = false;
+        // 【关键修复】同上：保存失败时保留脏标记
+        _localDirty = true;
+        try { localStorage.setItem('_localSaveFailedAt', String(Date.now())); } catch(_) {}
       }
       isSaving = false;
       resolve();
