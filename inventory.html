@@ -994,6 +994,13 @@ async function loadData() {
           var _rt = await _commitRes.text();
           var _rd = JSON.parse(_rt);
           if (_rd.items && _rd.items.length > 0) {
+            // 【修复】本地数据比云端新时，保留本地数据并自动重新上传
+            if (_localShown && _isLocalNewer(_rd)) {
+              setSyncStatus('online', '本地数据较新，自动同步中');
+              showToast('检测到本地有未同步的修改，正在自动上传');
+              save();
+              return;
+            }
             applyData(_rd);
             dataLoaded = true;
             try { localStorage.setItem('inventory_data', JSON.stringify(_rd)); } catch(_) {}
@@ -1016,6 +1023,13 @@ async function loadData() {
       var _rt = await _rr.text();
       var _rd = JSON.parse(_rt);
       if (_rd.items && _rd.items.length > 0) {
+        // 【修复】同上，本地数据比云端新时保留本地
+        if (_localShown && _isLocalNewer(_rd)) {
+          setSyncStatus('online', '本地数据较新，自动同步中');
+          showToast('检测到本地有未同步的修改，正在自动上传');
+          save();
+          return;
+        }
         applyData(_rd);
         dataLoaded = true;
         try { localStorage.setItem('inventory_data', JSON.stringify(_rd)); } catch(_) {}
@@ -1159,8 +1173,24 @@ function collectData() {
   return {
     items, history, persons, confirmers, pendingOuts, pendingIns, nextId, nextOutId, users,
     productionPlans, dailyReports, brandOrders,
-    _appVersion: 9
+    _appVersion: 9,
+    _savedAt: Date.now()
   };
+}
+
+// 【修复】比较本地缓存和云端数据的时间戳，防止刷新时用旧Gist数据覆盖本地新数据
+function _isLocalNewer(gistData) {
+  try {
+    var _localRaw = localStorage.getItem(CACHE_KEY) || localStorage.getItem('inventory_data');
+    if (!_localRaw) return false;
+    var _localTs = JSON.parse(_localRaw)._savedAt || 0;
+    var _gistTs = (gistData && gistData._savedAt) || 0;
+    if (_localTs > 0 && _gistTs > 0 && _localTs > _gistTs + 3000) {
+      console.log('[loadData] Local _savedAt=' + _localTs + ' > Gist _savedAt=' + _gistTs + ', keeping local');
+      return true;
+    }
+  } catch(_) {}
+  return false;
 }
 
 async function save() {
@@ -2225,6 +2255,12 @@ async function refreshData() {
           else { return; }
         }
         const data = JSON.parse(rawContent);
+        // 【修复】定时刷新也检查时间戳，防止用旧Gist数据覆盖本地新数据
+        if (_isLocalNewer(data)) {
+          console.log('[refreshData] Local data newer than Gist, skipping overwrite');
+          setSyncStatus('online', '本地数据较新');
+          return;
+        }
         applyData(data);
         if (currentTab === 'production') { renderPlans(); }
         else { renderTable(); refreshPersonDatalist(); }
