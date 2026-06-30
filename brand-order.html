@@ -941,11 +941,16 @@ async function save() {
           try { var errJson = JSON.parse(await res.text()); errText = errJson.message || ''; } catch(_) {}
           console.error('Save PATCH failed:', res.status, errText);
           setSyncStatus('error', '保存失败(' + res.status + ')');
+          // 【关键修复】保存失败时保留 _localDirty
+          _localDirty = true;
+          try { localStorage.setItem('_localSaveFailedAt', String(Date.now())); } catch(_) {}
           resolve(false);
         }
       } catch (e) {
         console.error('Save error:', e);
         setSyncStatus('error', '保存失败');
+        _localDirty = true;
+        try { localStorage.setItem('_localSaveFailedAt', String(Date.now())); } catch(_) {}
         resolve(false);
       } finally {
         isSaving = false;
