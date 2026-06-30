@@ -1186,15 +1186,18 @@ async function save() {
           _localDirty = false;
           try { localStorage.setItem(CACHE_KEY, JSON.stringify(_saveData)); } catch(_) {}
         }
-        else { 
-          console.error('Save PATCH failed:', res.status); 
-          setSyncStatus('error', '保存失败(' + res.status + ')'); 
-          _localDirty = false; 
+        else {
+          console.error('Save PATCH failed:', res.status);
+          setSyncStatus('error', '保存失败(' + res.status + ')');
+          // 【关键修复】保存失败时保留 _localDirty
+          _localDirty = true;
+          try { localStorage.setItem('_localSaveFailedAt', String(Date.now())); } catch(_) {}
         }
       } catch (e) {
         console.error('Save error:', e);
         setSyncStatus('error', '保存失败');
-        _localDirty = false;
+        _localDirty = true;
+        try { localStorage.setItem('_localSaveFailedAt', String(Date.now())); } catch(_) {}
       }
       isSaving = false;
       resolve();
