@@ -689,8 +689,24 @@ function collectData() {
   return {
     items, history, persons, confirmers, pendingOuts, pendingIns, nextId, nextOutId, users,
     productionPlans, dailyReports, brandOrders, inboundRecords,
-    _appVersion: 9
+    _appVersion: 9,
+    _savedAt: Date.now()
   };
+}
+
+// 【修复】比较本地缓存和云端数据的时间戳，防止刷新时覆盖未同步的本地数据
+function _isLocalNewer(gistData) {
+  try {
+    var _localRaw = localStorage.getItem(CACHE_KEY) || localStorage.getItem('inventory_data');
+    if (!_localRaw) return false;
+    var _localTs = JSON.parse(_localRaw)._savedAt || 0;
+    var _gistTs = (gistData && gistData._savedAt) || 0;
+    if (_localTs > 0 && _gistTs > 0 && _localTs > _gistTs + 3000) {
+      console.log('[loadData] Local _savedAt=' + _localTs + ' > Gist _savedAt=' + _gistTs + ', keeping local');
+      return true;
+    }
+  } catch(_) {}
+  return false;
 }
 
 // 一次性清理超量入库数据：completedQty 超过 qty 的订单
@@ -821,6 +837,13 @@ async function loadData() {
         }
         try {
           const data = JSON.parse(content);
+          // 【修复】本地数据比云端新时，保留本地并自动重新上传
+          if (_isLocalNewer(data)) {
+            setSyncStatus('online', '本地数据较新，自动同步中');
+            showToast('检测到本地有未同步的修改，正在自动上传');
+            save();
+            return;
+          }
           applyData(data);
           dataLoaded = true;
           // 缓存到本地，加载失败时降级使用
