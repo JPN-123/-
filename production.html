@@ -1128,17 +1128,40 @@ async function save() {
       isSaving = true;
       setSyncStatus('saving', '保存中...');
       try {
+        var _saveData = collectData();
+        // 【修复】Read-Modify-Write: 保存前先拉取最新 Gist，保留云端 users 字段
+        try {
+          const _latestRes = await fetch(GIST_API + '/' + gistId, { headers: apiHeaders(), cache: 'no-cache' });
+          if (_latestRes.ok) {
+            const _latestGist = await _latestRes.json();
+            const _latestFile = _latestGist.files && _latestGist.files[GIST_FILENAME];
+            if (_latestFile) {
+              var _latestContent = _latestFile.content;
+              if (_latestFile.truncated && _latestFile.raw_url) {
+                const _rawRes = await fetch(_latestFile.raw_url, { headers: apiHeaders(), cache: 'no-cache' });
+                if (_rawRes.ok) _latestContent = await _rawRes.text();
+              }
+              if (_latestContent) {
+                var _latestData = JSON.parse(_latestContent);
+                if (_latestData.users && _latestData.users.length > 0) {
+                  _saveData.users = _latestData.users;
+                  users = _latestData.users;
+                }
+              }
+            }
+          }
+        } catch(_) {}
         const res = await fetch(GIST_API + '/' + gistId, {
           method: 'PATCH',
           headers: apiHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
-            files: { [GIST_FILENAME]: { content: JSON.stringify(collectData()) } }
+            files: { [GIST_FILENAME]: { content: JSON.stringify(_saveData) } }
           })
         });
         if (res.ok) {
           setSyncStatus('online', '已同步');
           _localDirty = false;
-          try { localStorage.setItem(CACHE_KEY, JSON.stringify(collectData())); } catch(_) {}
+          try { localStorage.setItem(CACHE_KEY, JSON.stringify(_saveData)); } catch(_) {}
         }
         else { 
           console.error('Save PATCH failed:', res.status); 
