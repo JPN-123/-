@@ -458,9 +458,32 @@ async function loadGistData() {
 }
 
 async function saveGistData() {
-  if (!gistId || !gistData) return;
-  gistData.users = users;
+  if (!gistId) return;
   try {
+    // 【修复】Read-Modify-Write: 先拉取最新 Gist 数据，只更新 users 字段
+    // 避免把整个旧快照写回 Gist 覆盖 inventory.html 的库存数据
+    const fetchRes = await fetch(GIST_API + '/' + gistId, {
+      headers: { 'Authorization': 'token ' + GITHUB_TOKEN, 'Accept': 'application/vnd.github.v3+json' },
+      cache: 'no-cache'
+    });
+    if (!fetchRes.ok) { showToast('保存失败(' + fetchRes.status + ')'); return false; }
+    var gist = await fetchRes.json();
+    var file = gist.files && gist.files[GIST_FILENAME];
+    var latestContent = null;
+    if (file && file.content) {
+      latestContent = file.content;
+      if (file.truncated && file.raw_url) {
+        const rawRes = await fetch(file.raw_url, {
+          headers: { 'Authorization': 'token ' + GITHUB_TOKEN, 'Accept': 'application/vnd.github.v3+json' }
+        });
+        if (rawRes.ok) latestContent = await rawRes.text();
+      }
+    }
+    // 只更新 users 字段，保留云端最新的库存数据
+    var latestData = latestContent ? JSON.parse(latestContent) : {};
+    latestData.users = users;
+    gistData = latestData;
+    // 写回合并后的数据
     const res = await fetch(GIST_API + '/' + gistId, {
       method: 'PATCH',
       headers: {
@@ -469,14 +492,14 @@ async function saveGistData() {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        files: { [GIST_FILENAME]: { content: JSON.stringify(gistData) } }
+        files: { [GIST_FILENAME]: { content: JSON.stringify(latestData) } }
       })
     });
     if (res.ok) return true;
-    showToast('保存失败');
+    showToast('保存失败(' + res.status + ')');
     return false;
   } catch (e) {
-    showToast('保存失败');
+    showToast('保存失败: ' + e.message);
     return false;
   }
 }
