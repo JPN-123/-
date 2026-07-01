@@ -902,6 +902,11 @@ if (new URLSearchParams(window.location.search).get('token')) {
 }
 const GIST_API = 'https://api.github.com/gists';
 const GIST_FILENAME = 'inventory_data.json';
+// 【数据瘦身】拆分后的独立Gist
+const BRAND_GIST_ID = 'add372557241d4f9038c3130b0b0f1ea';
+const BRAND_GIST_FILENAME = 'brand_orders.json';
+const INBOUND_GIST_ID = '781321b60e02e4e0113ccd90d714e940';
+const INBOUND_GIST_FILENAME = 'inbound_records.json';
 
 function apiHeaders(extra) {
   var h = extra ? Object.assign({}, extra) : {};
@@ -930,6 +935,8 @@ let dataLoaded = false;
 let _localDirty = false;  // 防止自动刷新覆盖本地修改
 let productionPlans = [];
 let dailyReports = [];
+let brandOrders = [];
+let inboundRecords = [];
 let currentTab = 'production';
 
 function today() { return new Date().toISOString().split('T')[0]; }
@@ -1030,6 +1037,9 @@ async function loadData() {
         dataLoaded = true;
         setSyncStatus('online', '已连接');
         try { localStorage.setItem(CACHE_KEY, rawContent); } catch(_) {}
+        // 【数据瘦身】并行加载独立Gist
+        loadBrandOrders();
+        loadInboundRecords();
       } else {
         // Gist 存在但文件缺失，创建新数据
         setSyncStatus('error', '数据文件缺失');
@@ -1112,18 +1122,73 @@ function applyData(data) {
   productionPlans = data.productionPlans || [];
   dailyReports = data.dailyReports || [];
   brandOrders = data.brandOrders || [];
+  inboundRecords = data.inboundRecords || [];
   if (!data.users || data.users.length === 0) {
     users = [{ username: 'admin', password: '8888', role: 'super' }];
   }
 }
 
 function collectData() {
+  // 【数据瘦身】主文件不再包含brandOrders和inboundRecords
   return {
     items, history, persons, confirmers, pendingOuts, pendingIns, nextId, nextOutId, users,
-    productionPlans, dailyReports, brandOrders,
-    _appVersion: 9,
+    productionPlans, dailyReports,
+    brandOrders: [],
+    inboundRecords: [],
+    _appVersion: 10,
     _savedAt: Date.now()
   };
+}
+
+// 【数据瘦身】从独立Gist并行加载brandOrders和inboundRecords
+async function loadBrandOrders() {
+  try {
+    var _res = await fetch(GIST_API + '/' + BRAND_GIST_ID, { headers: apiHeaders(), cache: 'no-cache' });
+    if (!_res.ok) return;
+    var _gist = await _res.json();
+    var _file = _gist.files && _gist.files[BRAND_GIST_FILENAME];
+    if (!_file) return;
+    var _content = _file.content;
+    if (_file.truncated && _file.raw_url) {
+      var _rawRes = await fetch(_file.raw_url + '?t=' + Date.now(), { headers: apiHeaders(), cache: 'no-cache' });
+      if (_rawRes.ok) _content = await _rawRes.text();
+    }
+    if (_content) {
+      var _data = JSON.parse(_content);
+      if (_data.brandOrders && _data.brandOrders.length > 0) {
+        brandOrders = _data.brandOrders;
+        console.log('[loadBrandOrders] Loaded', brandOrders.length, 'orders');
+      }
+    }
+  } catch(e) { console.warn('loadBrandOrders error:', e); }
+}
+
+async function loadInboundRecords() {
+  try {
+    var _res = await fetch(GIST_API + '/' + INBOUND_GIST_ID, { headers: apiHeaders(), cache: 'no-cache' });
+    if (!_res.ok) return;
+    var _gist = await _res.json();
+    var _file = _gist.files && _gist.files[INBOUND_GIST_FILENAME];
+    if (!_file) return;
+    var _content = _file.content;
+    if (_file.truncated && _file.raw_url) {
+      var _rawRes = await fetch(_file.raw_url + '?t=' + Date.now(), { headers: apiHeaders(), cache: 'no-cache' });
+      if (_rawRes.ok) _content = await _rawRes.text();
+    }
+    if (_content) {
+      var _data = JSON.parse(_content);
+      if (_data.inboundRecords && _data.inboundRecords.length > 0) {
+        inboundRecords = _data.inboundRecords;
+      }
+      if (_data.historyArchive && _data.historyArchive.length > 0) {
+        var _existingDates = new Set(history.map(function(h) { return h.date + '_' + h.itemId + '_' + h.type; }));
+        for (var _arch of _data.historyArchive) {
+          var _key = _arch.date + '_' + _arch.itemId + '_' + _arch.type;
+          if (!_existingDates.has(_key)) { history.push(_arch); _existingDates.add(_key); }
+        }
+      }
+    }
+  } catch(e) { console.warn('loadInboundRecords error:', e); }
 }
 
 // 【修复】比较本地缓存和云端数据的时间戳，防止刷新时覆盖未同步的本地数据
@@ -2245,6 +2310,9 @@ async function refreshData() {
         if (currentTab === 'production') { renderPlans(); }
         else { renderTable(); refreshPersonDatalist(); }
         setSyncStatus('online', '已同步 ' + new Date().toLocaleTimeString('zh-CN'));
+        // 【数据瘦身】并行刷新独立Gist
+        loadBrandOrders();
+        loadInboundRecords();
       }
     }
   } catch (e) { /* 静默失败 */ }
