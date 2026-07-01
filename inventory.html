@@ -290,7 +290,7 @@
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
-  <div class="loading-text">正在加载数据... <span style="font-size:11px;color:#999">v2026.07.01</span></div>
+  <div class="loading-text">正在加载数据... <span style="font-size:11px;color:#999">v2026.07.01b</span></div>
 </div>
 
 <div class="top-bar">
@@ -833,7 +833,7 @@
 <div class="sync-status" id="syncStatus" style="display:none">
   <span class="sync-dot online" id="syncDot"></span>
   <span id="syncText">已连接</span>
-  <span style="font-size:10px;color:#aaa;margin-left:8px">v2026.07.01</span>
+  <span style="font-size:10px;color:#aaa;margin-left:8px">v2026.07.01b</span>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -982,6 +982,8 @@ async function loadData() {
   }
 
   var _gistId = getGistId() || '8cd0ec9b1c7ba76a3186a4db9f6d8e80';
+  // 【关键修复】设置全局 gistId，否则 save() 和 refreshData() 因 !gistId 直接跳过
+  gistId = _gistId;
   if (!_localShown) setSyncStatus('syncing', '正在从云端加载...');
 
   // 【Step 1】用 GIST API 获取 metadata，提取 commit hash raw_url（不被 CDN 缓存）
