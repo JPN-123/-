@@ -290,7 +290,7 @@
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
-  <div class="loading-text">正在加载数据... <span style="font-size:11px;color:#999">v2026.06.30</span></div>
+  <div class="loading-text">正在加载数据... <span style="font-size:11px;color:#999">v2026.07.01</span></div>
 </div>
 
 <div class="top-bar">
@@ -833,7 +833,7 @@
 <div class="sync-status" id="syncStatus" style="display:none">
   <span class="sync-dot online" id="syncDot"></span>
   <span id="syncText">已连接</span>
-  <span style="font-size:10px;color:#aaa;margin-left:8px">v2026.06.30</span>
+  <span style="font-size:10px;color:#aaa;margin-left:8px">v2026.07.01</span>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -861,6 +861,11 @@ if (new URLSearchParams(window.location.search).get('token')) {
 }
 const GIST_API = 'https://api.github.com/gists';
 const GIST_FILENAME = 'inventory_data.json';
+// 【数据瘦身】拆分后的独立Gist
+const BRAND_GIST_ID = 'add372557241d4f9038c3130b0b0f1ea';
+const BRAND_GIST_FILENAME = 'brand_orders.json';
+const INBOUND_GIST_ID = '781321b60e02e4e0113ccd90d714e940';
+const INBOUND_GIST_FILENAME = 'inbound_records.json';
 
 function apiHeaders(extra) {
   var h = extra ? Object.assign({}, extra) : {};
@@ -889,6 +894,7 @@ let dataLoaded = false;
 let _localDirty = false;  // 防止自动刷新覆盖本地修改
 let productionPlans = [];
 let dailyReports = [];
+let inboundRecords = [];
 let brandOrders = [];
 let currentTab = 'inventory';
 
@@ -1006,6 +1012,9 @@ async function loadData() {
             try { localStorage.setItem('inventory_data', JSON.stringify(_rd)); } catch(_) {}
             try { localStorage.setItem('inventory_cache', _rt); } catch(_) {}
             setSyncStatus('online', '已连接(' + _rd.items.length + '条)');
+            // 【数据瘦身】并行加载独立Gist（brandOrders + inboundRecords）
+            loadBrandOrders();
+            loadInboundRecords();
             return;
           }
         }
@@ -1035,6 +1044,9 @@ async function loadData() {
         try { localStorage.setItem('inventory_data', JSON.stringify(_rd)); } catch(_) {}
         try { localStorage.setItem('inventory_cache', _rt); } catch(_) {}
         setSyncStatus('online', '已连接(' + _rd.items.length + '条)');
+        // 【数据瘦身】并行加载独立Gist
+        loadBrandOrders();
+        loadInboundRecords();
         return;
       }
     }
@@ -1155,7 +1167,10 @@ function applyData(data) {
   users = data.users || [];
   productionPlans = data.productionPlans || [];
   dailyReports = data.dailyReports || [];
+  // 【数据瘦身兼容】主文件中的 brandOrders/inboundRecords 现在是空数组占位
+  // 旧数据迁移：如果主文件还有非空数组，暂存到变量（后续由loadBrandOrders/loadInboundRecords覆盖）
   brandOrders = data.brandOrders || [];
+  inboundRecords = data.inboundRecords || [];
   if (!data.users || data.users.length === 0) {
     users = [{ username: 'admin', password: '8888', role: 'super' }];
   }
@@ -1170,10 +1185,13 @@ function applyData(data) {
 }
 
 function collectData() {
+  // 【数据瘦身】主文件只保留核心数据，brandOrders和inboundRecords已拆分到独立Gist
   return {
     items, history, persons, confirmers, pendingOuts, pendingIns, nextId, nextOutId, users,
-    productionPlans, dailyReports, brandOrders,
-    _appVersion: 9,
+    productionPlans, dailyReports,
+    brandOrders: [],  // 占位，实际数据在独立Gist
+    inboundRecords: [],  // 占位，实际数据在独立Gist
+    _appVersion: 10,
     _savedAt: Date.now()
   };
 }
@@ -1219,6 +1237,105 @@ function _isLocalNewer(gistData) {
     } catch(_) {}
   } catch(_) {}
   return false;
+}
+
+// ========== 【数据瘦身】独立Gist读写函数 ==========
+
+// 从独立Gist拉取brandOrders
+async function loadBrandOrders() {
+  try {
+    var _res = await fetch(GIST_API + '/' + BRAND_GIST_ID, { headers: apiHeaders(), cache: 'no-cache' });
+    if (!_res.ok) { console.warn('loadBrandOrders: API failed', _res.status); return; }
+    var _gist = await _res.json();
+    var _file = _gist.files && _gist.files[BRAND_GIST_FILENAME];
+    if (!_file) return;
+    var _content = _file.content;
+    if (_file.truncated && _file.raw_url) {
+      var _rawRes = await fetch(_file.raw_url, { headers: apiHeaders(), cache: 'no-cache' });
+      if (_rawRes.ok) _content = await _rawRes.text();
+    }
+    if (_content) {
+      var _data = JSON.parse(_content);
+      if (_data.brandOrders && _data.brandOrders.length > 0) {
+        brandOrders = _data.brandOrders;
+        console.log('[loadBrandOrders] Loaded', brandOrders.length, 'orders from independent Gist');
+      }
+    }
+  } catch(e) { console.warn('loadBrandOrders error:', e); }
+}
+
+// 从独立Gist拉取inboundRecords + history归档
+async function loadInboundRecords() {
+  try {
+    var _res = await fetch(GIST_API + '/' + INBOUND_GIST_ID, { headers: apiHeaders(), cache: 'no-cache' });
+    if (!_res.ok) { console.warn('loadInboundRecords: API failed', _res.status); return; }
+    var _gist = await _res.json();
+    var _file = _gist.files && _gist.files[INBOUND_GIST_FILENAME];
+    if (!_file) return;
+    var _content = _file.content;
+    if (_file.truncated && _file.raw_url) {
+      var _rawRes = await fetch(_file.raw_url, { headers: apiHeaders(), cache: 'no-cache' });
+      if (_rawRes.ok) _content = await _rawRes.text();
+    }
+    if (_content) {
+      var _data = JSON.parse(_content);
+      if (_data.inboundRecords && _data.inboundRecords.length > 0) {
+        inboundRecords = _data.inboundRecords;
+        console.log('[loadInboundRecords] Loaded', inboundRecords.length, 'records from independent Gist');
+      }
+      // 合并归档history（60天前的记录）
+      if (_data.historyArchive && _data.historyArchive.length > 0) {
+        // 合并到主history数组（去重）
+        var _existingDates = new Set(history.map(function(h) { return h.date + '_' + h.itemId + '_' + h.type; }));
+        for (var _arch of _data.historyArchive) {
+          var _key = _arch.date + '_' + _arch.itemId + '_' + _arch.type;
+          if (!_existingDates.has(_key)) {
+            history.push(_arch);
+            _existingDates.add(_key);
+          }
+        }
+        console.log('[loadInboundRecords] Merged', _data.historyArchive.length, 'archived history records');
+      }
+    }
+  } catch(e) { console.warn('loadInboundRecords error:', e); }
+}
+
+// 保存brandOrders到独立Gist
+async function saveBrandOrders() {
+  if (!GITHUB_TOKEN) return;
+  try {
+    var _data = { brandOrders: brandOrders, _savedAt: Date.now(), _appVersion: 10 };
+    var _res = await fetch(GIST_API + '/' + BRAND_GIST_ID, {
+      method: 'PATCH',
+      headers: apiHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ files: { [BRAND_GIST_FILENAME]: { content: JSON.stringify(_data, ensure_ascii=False) } } })
+    });
+    if (_res.ok) console.log('[saveBrandOrders] Saved', brandOrders.length, 'orders');
+    else console.warn('[saveBrandOrders] Failed:', _res.status);
+  } catch(e) { console.warn('saveBrandOrders error:', e); }
+}
+
+// 保存inboundRecords + history归档到独立Gist
+async function saveInboundRecords() {
+  if (!GITHUB_TOKEN) return;
+  try {
+    // 自动归档：把60天前的history移到归档文件
+    var _cutoff = new Date(Date.now() - 60*24*60*60*1000).toISOString().split('T')[0];
+    var _archive = history.filter(function(h) { return h.date < _cutoff; });
+    var _recent = history.filter(function(h) { return h.date >= _cutoff; });
+    if (_archive.length > 0) {
+      history = _recent; // 主history只保留60天内
+      console.log('[saveInboundRecords] Archived', _archive.length, 'old history records');
+    }
+    var _data = { inboundRecords: inboundRecords, historyArchive: _archive, _savedAt: Date.now(), _appVersion: 10 };
+    var _res = await fetch(GIST_API + '/' + INBOUND_GIST_ID, {
+      method: 'PATCH',
+      headers: apiHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ files: { [INBOUND_GIST_FILENAME]: { content: JSON.stringify(_data, ensure_ascii=False) } } })
+    });
+    if (_res.ok) console.log('[saveInboundRecords] Saved', inboundRecords.length, 'records +', _archive.length, 'archived');
+    else console.warn('[saveInboundRecords] Failed:', _res.status);
+  } catch(e) { console.warn('saveInboundRecords error:', e); }
 }
 
 async function save() {
@@ -1272,6 +1389,9 @@ async function save() {
           // 云端成功后再次更新缓存
           try { localStorage.setItem(CACHE_KEY, JSON.stringify(_saveData)); } catch(_) {}
           try { localStorage.setItem('inventory_data', JSON.stringify(_saveData)); } catch(_) {}
+          // 【数据瘦身】主文件保存成功后，异步并行保存独立Gist
+          saveBrandOrders();
+          saveInboundRecords();
         }
         else {
           console.error('Save PATCH failed:', res.status);
@@ -2298,6 +2418,9 @@ async function refreshData() {
         if (currentTab === 'production') { renderPlans(); }
         else { renderTable(); refreshPersonDatalist(); }
         setSyncStatus('online', '已同步 ' + new Date().toLocaleTimeString('zh-CN'));
+        // 【数据瘦身】并行刷新独立Gist
+        loadBrandOrders();
+        loadInboundRecords();
       }
     }
   } catch (e) { /* 静默失败 */ }
