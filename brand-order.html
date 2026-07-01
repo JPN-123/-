@@ -235,7 +235,7 @@
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
-  <p style="color:#666;font-size:14px">加载中... <span style="font-size:11px;color:#aaa">v2026.06.27b</span></p>
+  <p style="color:#666;font-size:14px">加载中... <span style="font-size:11px;color:#aaa">v2026.07.01</span></p>
 </div>
 
 <div class="header" id="appHeader" style="display:none">
@@ -528,8 +528,12 @@ if (new URLSearchParams(window.location.search).get('token')) {
   localStorage.setItem('platform_token', GITHUB_TOKEN);
 }
 const GIST_API = 'https://api.github.com/gists';
-const GIST_FILENAME = 'inventory_data.json';
-const PRESET_GIST_ID = '8cd0ec9b1c7ba76a3186a4db9f6d8e80';
+// 【数据瘦身】BRAND订单使用独立Gist，不再共用inventory_data
+const GIST_FILENAME = 'brand_orders.json';
+const PRESET_GIST_ID = 'add372557241d4f9038c3130b0b0f1ea';
+// 主Gist（用于读取共享数据如users等）
+const MAIN_GIST_ID = '8cd0ec9b1c7ba76a3186a4db9f6d8e80';
+const MAIN_GIST_FILENAME = 'inventory_data.json';
 
 // 构建 API headers — token 为空时不发 Authorization（公开 Gist 无需认证）
 function apiHeaders(extra) {
@@ -629,25 +633,21 @@ function getDefaultData() {
 }
 
 function applyData(data) {
-  items = data.items || [];
-  history = data.history || [];
-  persons = data.persons || [];
-  confirmers = data.confirmers || [];
-  pendingOuts = data.pendingOuts || [];
-  pendingIns = data.pendingIns || [];
-  nextId = data.nextId || 1001;
-  // 【防重复】数据加载后确保 nextId 大于所有已有订单 ID
-  if (data.brandOrders && data.brandOrders.length > 0) {
-    var _maxBrandId = Math.max(0, ...data.brandOrders.map(function(x){return x.id||0;}));
-    if (nextId <= _maxBrandId) { nextId = _maxBrandId + 1; }
-  }
-  nextOutId = data.nextOutId || 1;
-  users = data.users || [];
-  productionPlans = data.productionPlans || [];
-  dailyReports = data.dailyReports || [];
+  // 【数据瘦身兼容】新Gist数据只含brandOrders+inboundRecords，旧数据含所有字段
+  items = data.items || items || [];
+  history = data.history || history || [];
+  persons = data.persons || persons || [];
+  confirmers = data.confirmers || confirmers || [];
+  pendingOuts = data.pendingOuts || pendingOuts || [];
+  pendingIns = data.pendingIns || pendingIns || [];
+  nextId = data.nextId || nextId || 1001;
+  nextOutId = data.nextOutId || nextOutId || 1;
+  users = data.users || users || [];
+  productionPlans = data.productionPlans || productionPlans || [];
+  dailyReports = data.dailyReports || dailyReports || [];
   brandOrders = data.brandOrders || [];
   inboundRecords = data.inboundRecords || [];
-  if (!data.users || data.users.length === 0) {
+  if (!users || users.length === 0) {
     users = [{ username: 'admin', password: '8888', role: 'super' }];
   }
   // 清理旧数据中的无效/外部导入的残留订单状态
@@ -686,12 +686,51 @@ function applyData(data) {
 }
 
 function collectData() {
+  // 【数据瘦身】BRAND订单Gist只保存brandOrders数据
   return {
-    items, history, persons, confirmers, pendingOuts, pendingIns, nextId, nextOutId, users,
-    productionPlans, dailyReports, brandOrders, inboundRecords,
-    _appVersion: 9,
+    brandOrders, inboundRecords,
+    _appVersion: 10,
     _savedAt: Date.now()
   };
+}
+
+// 【数据瘦身】从主Gist加载共享数据（users/items等）
+async function loadSharedData() {
+  try {
+    var _res = await fetch(GIST_API + '/' + MAIN_GIST_ID, { headers: apiHeaders(), cache: 'no-cache' });
+    if (!_res.ok) return;
+    var _gist = await _res.json();
+    var _file = _gist.files && _gist.files[MAIN_GIST_FILENAME];
+    if (!_file) return;
+    var _content = _file.content;
+    if (_file.truncated && _file.raw_url) {
+      var _rawRes = await fetch(_file.raw_url + '?t=' + Date.now(), { headers: apiHeaders(), cache: 'no-cache' });
+      if (_rawRes.ok) _content = await _rawRes.text();
+    }
+    if (_content) {
+      var _data = JSON.parse(_content);
+      // 只更新共享字段，不覆盖brandOrders（那在独立Gist里）
+      users = _data.users || users;
+      items = _data.items || items;
+      persons = _data.persons || persons;
+      confirmers = _data.confirmers || confirmers;
+      pendingOuts = _data.pendingOuts || pendingOuts;
+      pendingIns = _data.pendingIns || pendingIns;
+      nextId = _data.nextId || nextId;
+      nextOutId = _data.nextOutId || nextOutId;
+      productionPlans = _data.productionPlans || productionPlans;
+      dailyReports = _data.dailyReports || dailyReports;
+      // 防重复：确保 nextId 大于所有已有订单 ID
+      if (brandOrders && brandOrders.length > 0) {
+        var _maxBrandId = Math.max(0, ...brandOrders.map(function(x){return x.id||0;}));
+        if (nextId <= _maxBrandId) { nextId = _maxBrandId + 1; }
+      }
+      if (!users || users.length === 0) {
+        users = [{ username: 'admin', password: '8888', role: 'super' }];
+      }
+      console.log('[loadSharedData] Loaded shared data from main Gist');
+    }
+  } catch(e) { console.warn('loadSharedData error:', e); }
 }
 
 // 【修复】比较本地缓存和云端数据的时间戳，防止刷新时覆盖未同步的本地数据
@@ -848,6 +887,8 @@ async function loadData() {
           dataLoaded = true;
           // 缓存到本地，加载失败时降级使用
           try { localStorage.setItem(CACHE_KEY, content); } catch(_) {}
+          // 【数据瘦身】从主Gist并行加载共享数据（users/items等）
+          loadSharedData();
           // 自动清理超量入库数据（一次性），如有修正则保存
           var fixedCount = fixOverInbound();
           if (fixedCount > 0) {
@@ -889,10 +930,10 @@ async function loadData() {
 }
 
 async function save() {
-  if (!gistId || !dataLoaded) return null;  // 返回 null 表示保存未执行
+  if (!gistId || !dataLoaded) return null;
   _localDirty = true;
   clearTimeout(saveTimer);
-  // 【加固】立即写入 localStorage，无论云端是否成功都不丢数据
+  // 【加固】立即写入 localStorage
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(collectData())); } catch(_) {}
   return new Promise((resolve) => {
     saveTimer = setTimeout(async () => {
@@ -901,38 +942,17 @@ async function save() {
       setSyncStatus('saving', '保存中...');
       try {
         var _saveData = collectData();
-        // 【修复】Read-Modify-Write: 保存前先拉取最新 Gist，保留云端 users 字段
-        try {
-          const _latestRes = await fetch(GIST_API + '/' + gistId, { headers: apiHeaders(), cache: 'no-cache' });
-          if (_latestRes.ok) {
-            const _latestGist = await _latestRes.json();
-            const _latestFile = _latestGist.files && _latestGist.files[GIST_FILENAME];
-            if (_latestFile) {
-              var _latestContent = _latestFile.content;
-              if (_latestFile.truncated && _latestFile.raw_url) {
-                const _rawRes = await fetch(_latestFile.raw_url, { headers: apiHeaders(), cache: 'no-cache' });
-                if (_rawRes.ok) _latestContent = await _rawRes.text();
-              }
-              if (_latestContent) {
-                var _latestData = JSON.parse(_latestContent);
-                if (_latestData.users && _latestData.users.length > 0) {
-                  _saveData.users = _latestData.users;
-                  users = _latestData.users;
-                }
-              }
-            }
-          }
-        } catch(_) {}
+        // 【数据瘦身】BRAND订单Gist是独立的，直接PATCH即可，不需要Read-Modify-Write
         const res = await fetch(GIST_API + '/' + gistId, {
           method: 'PATCH',
           headers: apiHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
-            files: { [GIST_FILENAME]: { content: JSON.stringify(_saveData) } }
+            files: { [GIST_FILENAME]: { content: JSON.stringify(_saveData, ensure_ascii=False) } }
           })
         });
         if (res.ok) {
           setSyncStatus('online', '已同步');
-          _localDirty = false;  // 保存成功，清除脏标记
+          _localDirty = false;
           try { localStorage.setItem(CACHE_KEY, JSON.stringify(_saveData)); } catch(_) {}
           resolve(true);
         }
