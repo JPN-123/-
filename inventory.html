@@ -196,8 +196,10 @@
   }
   .pending-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
   .pending-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-  .pending-card-items { font-size: 12px; color: #666; margin-bottom: 8px; padding: 6px 10px; background: #f5f5f5; border-radius: 4px; }
+  .pending-card-items { font-size: 12px; color: #666; margin-bottom: 8px; padding: 6px 10px; background: #f5f5f5; border-radius: 4px; word-break: break-all; }
   .pending-card-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  /* 待确认列表内容区允许滚动，避免长列表撑出可视区域 */
+  #pendingList, #pendingInList { max-height: 60vh; overflow-y: auto; padding-right: 4px; }
 
 
   /* 加载遮罩 */
@@ -290,7 +292,7 @@
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
-  <div class="loading-text">正在加载数据... <span style="font-size:11px;color:#999">v2026.07.01b</span></div>
+  <div class="loading-text">正在加载数据... <span style="font-size:11px;color:#999">v2026.07.02</span></div>
 </div>
 
 <div class="top-bar">
@@ -686,7 +688,7 @@
   <div class="modal" style="width:640px">
     <h2 style="color:#7c4dff">待确认发货</h2>
     <p style="font-size:12px;color:#999;margin-bottom:12px">以下领出申请等待确认发货，点击「确认发货」后库存将实际扣减。</p>
-    <div id="pendingList"></div>
+    <div id="pendingList" style="flex:1;min-height:0;overflow-y:auto"></div>
     <div class="modal-actions">
       <button class="btn-outline" onclick="closeModal('pendingModal')">关闭</button>
     </div>
@@ -698,7 +700,7 @@
   <div class="modal" style="width:640px">
     <h2 style="color:#2e7d32">待确认领入</h2>
     <p style="font-size:12px;color:#999;margin-bottom:12px">以下领入申请等待确认，点击「确认领入」后库存将实际增加。</p>
-    <div id="pendingInList"></div>
+    <div id="pendingInList" style="flex:1;min-height:0;overflow-y:auto"></div>
     <div class="modal-actions">
       <button class="btn-outline" onclick="closeModal('pendingInModal')">关闭</button>
     </div>
@@ -833,7 +835,7 @@
 <div class="sync-status" id="syncStatus" style="display:none">
   <span class="sync-dot online" id="syncDot"></span>
   <span id="syncText">已连接</span>
-  <span style="font-size:10px;color:#aaa;margin-left:8px">v2026.07.01b</span>
+  <span style="font-size:10px;color:#aaa;margin-left:8px">v2026.07.02</span>
 </div>
 
 <div class="toast" id="toast"></div>
