@@ -235,7 +235,7 @@
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
-  <p style="color:#666;font-size:14px">加载中... <span style="font-size:11px;color:#aaa">v2026.07.01</span></p>
+  <p style="color:#666;font-size:14px">加载中... <span style="font-size:11px;color:#aaa">v2026.07.02-multiGist</span></p>
 </div>
 
 <div class="header" id="appHeader" style="display:none">
@@ -528,12 +528,14 @@ if (new URLSearchParams(window.location.search).get('token')) {
   localStorage.setItem('platform_token', GITHUB_TOKEN);
 }
 const GIST_API = 'https://api.github.com/gists';
-// 【数据瘦身】BRAND订单使用独立Gist，不再共用inventory_data
-const GIST_FILENAME = 'brand_orders.json';
+// 【数据瘦身】BRAND订单按月拆分到独立Gist
+// PRESET_GIST_ID 现在是月份索引Gist（轻量381B），各月份数据在独立Gist中
 const PRESET_GIST_ID = 'add372557241d4f9038c3130b0b0f1ea';
-// 主Gist（用于读取共享数据如users等）
+const INDEX_FILENAME = 'brand_orders.json';
 const MAIN_GIST_ID = '8cd0ec9b1c7ba76a3186a4db9f6d8e80';
 const MAIN_GIST_FILENAME = 'inventory_data.json';
+// 月份Gist缓存：{month: {gistId, filename, sha, content}}
+let MONTH_GIST_CACHE = {};
 
 // 构建 API headers — token 为空时不发 Authorization（公开 Gist 无需认证）
 function apiHeaders(extra) {
@@ -608,7 +610,7 @@ async function createNewGist() {
       body: JSON.stringify({
         description: 'BRAND订单数据',
         public: false,
-        files: { [GIST_FILENAME]: { content: JSON.stringify(getDefaultData()) } }
+        files: { [INDEX_FILENAME]: { content: JSON.stringify(getDefaultData()) } }
       })
     });
     if (res.ok) {
@@ -828,13 +830,23 @@ async function loadData() {
 
   // 【兜底】从 Gist raw URL 获取数据（不需要 Token，CORS 允许）
   var _tryRawUrl = async function() {
-    var _rawUrl = 'https://gist.githubusercontent.com/JPN-123/' + gistId + '/raw/' + GIST_FILENAME + '?t=' + Date.now();
+    var _rawUrl = 'https://gist.githubusercontent.com/JPN-123/' + gistId + '/raw/' + INDEX_FILENAME + '?t=' + Date.now();
     try {
       setSyncStatus('syncing', '正在从云端恢复数据...');
       var _rr = await fetch(_rawUrl, { mode: 'cors', cache: 'no-cache' });
       if (_rr.ok) {
         var _rawText = await _rr.text();
         var _rawData = JSON.parse(_rawText);
+        // 索引格式：{index:true, monthGists:[{month,gistId,filename}, ...]}
+        if (_rawData && _rawData.index && _rawData.monthGists) {
+          var _merged = await _loadFromMonthlyGists(_rawData.monthGists);
+          applyData(_merged);
+          dataLoaded = true;
+          try { localStorage.setItem(CACHE_KEY, JSON.stringify(_merged)); } catch(_) {}
+          setSyncStatus('offline', '使用云端数据(只读)');
+          showToast('Token已失效，已从云端获取最新数据（只读模式）');
+          return true;
+        }
         applyData(_rawData);
         dataLoaded = true;
         try { localStorage.setItem(CACHE_KEY, _rawText); } catch(_) {}
@@ -848,13 +860,37 @@ async function loadData() {
     return false;
   };
 
+  // 【多Gist】从多个月份Gist并发拉取并合并 brandOrders
+  async function _loadFromMonthlyGists(monthGists) {
+    var allOrders = [];
+    var allInbound = [];
+    var fetchPromises = monthGists.map(function(mg) {
+      var rawUrl = 'https://gist.githubusercontent.com/JPN-123/' + mg.gistId + '/raw/' + mg.filename + '?t=' + Date.now();
+      return fetch(rawUrl, { cache: 'no-cache' }).then(function(r) {
+        if (r.ok) return r.text();
+        return null;
+      }).then(function(txt) {
+        if (!txt) return;
+        try {
+          var d = JSON.parse(txt);
+          if (Array.isArray(d.brandOrders)) allOrders = allOrders.concat(d.brandOrders);
+          if (Array.isArray(d.inboundRecords)) allInbound = allInbound.concat(d.inboundRecords);
+        } catch(e) {
+          console.warn('[multiGist] parse error for month', mg.month, e);
+        }
+      });
+    });
+    await Promise.all(fetchPromises);
+    return { brandOrders: allOrders, inboundRecords: allInbound };
+  }
+
   try {
     const res = await fetch(GIST_API + '/' + gistId, {
       headers: apiHeaders()
     });
     if (res.ok) {
       const gist = await res.json();
-      const file = gist.files && gist.files[GIST_FILENAME];
+      const file = gist.files && gist.files[INDEX_FILENAME];
       if (file) {
         var content = file.content;
         // 文件过大时 GitHub API 会截断 content，需走 raw_url 获取完整数据
@@ -876,6 +912,36 @@ async function loadData() {
         }
         try {
           const data = JSON.parse(content);
+          // 【多Gist】如果返回的是索引结构，并发拉取各月Gist合并
+          if (data && data.index && Array.isArray(data.monthGists)) {
+            MONTH_GIST_CACHE = {}; // 重置
+            data.monthGists.forEach(function(mg) { MONTH_GIST_CACHE[mg.month] = mg; });
+            var merged = await _loadFromMonthlyGists(data.monthGists);
+            // 保留其余共享字段（如果索引里也带了）
+            merged._appVersion = data._appVersion || 11;
+            merged._savedAt = data._savedAt || Date.now();
+            // 缓存：包含 monthGists 索引，方便离线恢复
+            try { localStorage.setItem(CACHE_KEY, JSON.stringify(merged)); } catch(_) {}
+            try { localStorage.setItem('brand_orders_index', JSON.stringify(data)); } catch(_) {}
+            // 【修复】本地数据比云端新时，保留本地并自动重新上传
+            if (_isLocalNewer(merged)) {
+              setSyncStatus('online', '本地数据较新，自动同步中');
+              showToast('检测到本地有未同步的修改，正在自动上传');
+              save();
+              return;
+            }
+            applyData(merged);
+            dataLoaded = true;
+            loadSharedData();
+            var fixedCount = fixOverInbound();
+            if (fixedCount > 0) {
+              console.log('[cleanup] 共修正 ' + fixedCount + ' 条超量订单');
+              await save();
+              showToast('已自动修正 ' + fixedCount + ' 条超量入库数据并保存');
+            }
+            setSyncStatus('online', '已连接');
+            return;
+          }
           // 【修复】本地数据比云端新时，保留本地并自动重新上传
           if (_isLocalNewer(data)) {
             setSyncStatus('online', '本地数据较新，自动同步中');
@@ -942,26 +1008,55 @@ async function save() {
       setSyncStatus('saving', '保存中...');
       try {
         var _saveData = collectData();
-        // 【数据瘦身】BRAND订单Gist是独立的，直接PATCH即可，不需要Read-Modify-Write
-        const res = await fetch(GIST_API + '/' + gistId, {
-          method: 'PATCH',
-          headers: apiHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({
-            files: { [GIST_FILENAME]: { content: JSON.stringify(_saveData, ensure_ascii=False) } }
-          })
+        // 【多Gist】按月分组 brandOrders，分发到各月份Gist
+        var byMonth = {};
+        (_saveData.brandOrders || []).forEach(function(o) {
+          var m = (o.date || '').substring(0, 7) || 'unknown';
+          if (!byMonth[m]) byMonth[m] = [];
+          byMonth[m].push(o);
         });
-        if (res.ok) {
+        // 现有月份配置：保留所有已知月份（无新订单的月份也要保留空数组）
+        var allMonths = Object.keys(MONTH_GIST_CACHE);
+        Object.keys(byMonth).forEach(function(m) { if (allMonths.indexOf(m) === -1) allMonths.push(m); });
+
+        // 检查是否有新月份没有Gist配置（无法保存）
+        var missingMonths = Object.keys(byMonth).filter(function(m) { return !MONTH_GIST_CACHE[m]; });
+        if (missingMonths.length > 0) {
+          console.warn('以下月份无Gist配置，将跳过保存：', missingMonths);
+          showToast('警告：' + missingMonths.join(',') + ' 等月份无Gist配置，请联系管理员');
+        }
+
+        // 对每月份Gist做PATCH
+        var patchPromises = allMonths.map(function(month) {
+          var cfg = MONTH_GIST_CACHE[month];
+          if (!cfg) return null; // 跳过无配置的月份
+          var monthData = {
+            _appVersion: 11,
+            _savedAt: Date.now(),
+            brandOrders: byMonth[month] || [],
+            inboundRecords: _saveData.inboundRecords || []  // inbound共享
+          };
+          return fetch(GIST_API + '/' + cfg.gistId, {
+            method: 'PATCH',
+            headers: apiHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({
+              files: { [cfg.filename]: { content: JSON.stringify(monthData, ensure_ascii=False) } }
+            })
+          }).then(function(r) { return { month: month, ok: r.ok, status: r.status }; });
+        }).filter(Boolean);
+
+        var results = await Promise.all(patchPromises);
+        var allOk = results.every(function(r) { return r.ok; });
+        if (allOk) {
           setSyncStatus('online', '已同步');
           _localDirty = false;
           try { localStorage.setItem(CACHE_KEY, JSON.stringify(_saveData)); } catch(_) {}
           resolve(true);
         }
         else {
-          var errText = '';
-          try { var errJson = JSON.parse(await res.text()); errText = errJson.message || ''; } catch(_) {}
-          console.error('Save PATCH failed:', res.status, errText);
-          setSyncStatus('error', '保存失败(' + res.status + ')');
-          // 【关键修复】保存失败时保留 _localDirty
+          var failed = results.filter(function(r) { return !r.ok; });
+          console.error('Save PATCH failed:', JSON.stringify(failed));
+          setSyncStatus('error', '保存失败(' + failed[0].status + ')');
           _localDirty = true;
           try { localStorage.setItem('_localSaveFailedAt', String(Date.now())); } catch(_) {}
           resolve(false);
