@@ -864,27 +864,36 @@ async function loadData() {
   };
 
   // 【多Gist】从多个月份Gist并发拉取并合并 brandOrders
+  var _diagInfo = { startTime: Date.now(), steps: [] };
+  window.diagBrandOrder = function() { console.log('=== BRAND ORDER 诊断 ===\n', JSON.stringify(_diagInfo, null, 2), '\nbrandOrders:', brandOrders.length, '条\ndataLoaded:', dataLoaded, '\ngistId:', gistId, '\nMONTH_GIST_CACHE:', Object.keys(MONTH_GIST_CACHE)); };
   async function _loadFromMonthlyGists(monthGists) {
     var allOrders = [];
     var allInbound = [];
+    _diagInfo.steps.push({ step: '_loadFromMonthlyGists start', monthCount: monthGists.length, months: monthGists.map(function(m){return m.month;}) });
     var fetchPromises = monthGists.map(function(mg) {
       var rawUrl = 'https://gist.githubusercontent.com/JPN-123/' + mg.gistId + '/raw/' + mg.filename + '?t=' + Date.now();
       return fetch(rawUrl, { cache: 'no-cache', headers: apiHeaders() }).then(function(r) {
         if (r.ok) return r.text();
         console.warn('[multiGist] fetch failed for', mg.month, 'status:', r.status);
+        _diagInfo.steps.push({ step: 'fetch failed', month: mg.month, status: r.status });
         return null;
       }).then(function(txt) {
-        if (!txt) return;
+        if (!txt) { _diagInfo.steps.push({ step: 'no text', month: mg.month }); return; }
         try {
           var d = JSON.parse(txt);
+          var orderCount = Array.isArray(d.brandOrders) ? d.brandOrders.length : 0;
+          _diagInfo.steps.push({ step: 'parsed', month: mg.month, orders: orderCount, textLen: txt.length });
           if (Array.isArray(d.brandOrders)) allOrders = allOrders.concat(d.brandOrders);
           if (Array.isArray(d.inboundRecords)) allInbound = allInbound.concat(d.inboundRecords);
         } catch(e) {
           console.warn('[multiGist] parse error for month', mg.month, e);
+          _diagInfo.steps.push({ step: 'parse error', month: mg.month, error: e.message, textPreview: txt.substring(0, 200) });
         }
       });
     });
     await Promise.all(fetchPromises);
+    _diagInfo.steps.push({ step: '_loadFromMonthlyGists done', totalOrders: allOrders.length, totalInbound: allInbound.length });
+    console.log('[multiGist] 合并完成: orders=' + allOrders.length + ', inbound=' + allInbound.length);
     return { brandOrders: allOrders, inboundRecords: allInbound };
   }
 
