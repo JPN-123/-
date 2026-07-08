@@ -235,7 +235,7 @@
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
-  <p style="color:#666;font-size:14px">加载中... <span style="font-size:11px;color:#aaa">v2026.07.08-corsFix</span></p>
+  <p style="color:#666;font-size:14px">加载中... <span style="font-size:11px;color:#aaa">v2026.07.08-apiCors</span></p>
 </div>
 
 <div class="header" id="appHeader" style="display:none">
@@ -540,7 +540,7 @@ let MONTH_GIST_CACHE = {};
 // 构建 API headers — token 为空时不发 Authorization（公开 Gist 无需认证）
 function apiHeaders(extra) {
   var h = extra ? Object.assign({}, extra) : {};
-  h['Accept'] = 'application/vnd.github.v3+json';
+  if (!h['Accept']) h['Accept'] = 'application/vnd.github.v3+json';
   if (GITHUB_TOKEN) h['Authorization'] = 'token ' + GITHUB_TOKEN;
   return h;
 }
@@ -864,7 +864,7 @@ async function loadData() {
   };
 
   // 【多Gist】从多个月份Gist并发拉取并合并 brandOrders
-  // 注意：raw URL 用 URL 内置的 secret token 鉴权，**不能带 Authorization/Accept 等自定义头**（会触发 CORS 预检被 GitHub 拒绝）
+  // 用 GitHub API + Accept: vnd.github.v3.raw 拉取（API 端点支持 CORS，raw URL 不支持）
   var _diagInfo = { startTime: Date.now(), steps: [] };
   window.diagBrandOrder = function() { console.log('=== BRAND ORDER 诊断 ===\n', JSON.stringify(_diagInfo, null, 2), '\nbrandOrders:', brandOrders.length, ' 条\ndataLoaded:', dataLoaded, '\ngistId:', gistId, '\nMONTH_GIST_CACHE:', Object.keys(MONTH_GIST_CACHE)); };
   async function _loadFromMonthlyGists(monthGists) {
@@ -872,9 +872,9 @@ async function loadData() {
     var allInbound = [];
     _diagInfo.steps.push({ step: '_loadFromMonthlyGists start', monthCount: monthGists.length, months: monthGists.map(function(m){return m.month;}) });
     var fetchPromises = monthGists.map(function(mg) {
-      var rawUrl = 'https://gist.githubusercontent.com/JPN-123/' + mg.gistId + '/raw/' + mg.filename + '?t=' + Date.now();
-      // 纯匿名fetch，不带任何自定义头（避免 CORS 预检被 GitHub 403 拒绝）
-      return fetch(rawUrl, { cache: 'no-cache' }).then(function(r) {
+      // 改用 GitHub API + Accept: vnd.github.v3.raw 拉取（支持CORS，raw URL已被GitHub禁CORS）
+      var apiUrl = 'https://api.github.com/gists/' + mg.gistId;
+      return fetch(apiUrl, { cache: 'no-cache', headers: apiHeaders({ 'Accept': 'application/vnd.github.v3.raw' }) }).then(function(r) {
         if (r.ok) return r.text();
         console.warn('[multiGist] fetch failed for', mg.month, 'status:', r.status);
         _diagInfo.steps.push({ step: 'fetch failed', month: mg.month, status: r.status });
