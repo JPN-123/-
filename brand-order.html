@@ -738,7 +738,8 @@ async function loadSharedData() {
 // 【修复】比较本地缓存和云端数据的时间戳，防止刷新时覆盖未同步的本地数据
 function _isLocalNewer(gistData) {
   try {
-    var _localRaw = localStorage.getItem(CACHE_KEY) || localStorage.getItem('inventory_data');
+    // 只检查本模块的缓存，避免和inventory.html的inventory_data冲突
+    var _localRaw = localStorage.getItem(CACHE_KEY);
     if (!_localRaw) return false;
     var _localTs = JSON.parse(_localRaw)._savedAt || 0;
     var _gistTs = (gistData && gistData._savedAt) || 0;
@@ -922,6 +923,9 @@ async function loadData() {
             // 保留其余共享字段（如果索引里也带了）
             merged._appVersion = data._appVersion || 11;
             merged._savedAt = data._savedAt || Date.now();
+            // 先 applyData 把云端数据加载到页面（必须有这一步，否则页面会显示0条）
+            applyData(merged);
+            dataLoaded = true;
             // 缓存：包含 monthGists 索引，方便离线恢复
             try { localStorage.setItem(CACHE_KEY, JSON.stringify(merged)); } catch(_) {}
             try { localStorage.setItem('brand_orders_index', JSON.stringify(data)); } catch(_) {}
@@ -932,8 +936,6 @@ async function loadData() {
               save();
               return;
             }
-            applyData(merged);
-            dataLoaded = true;
             loadSharedData();
             var fixedCount = fixOverInbound();
             if (fixedCount > 0) {
@@ -1017,9 +1019,9 @@ async function save() {
           if (!byMonth[m]) byMonth[m] = [];
           byMonth[m].push(o);
         });
-        // 现有月份配置：保留所有已知月份（无新订单的月份也要保留空数组）
-        var allMonths = Object.keys(MONTH_GIST_CACHE);
-        Object.keys(byMonth).forEach(function(m) { if (allMonths.indexOf(m) === -1) allMonths.push(m); });
+        // 关键修复：只PATCH有数据的月份，没数据的月份保持原样（避免空数据覆盖）
+        var monthsToPatch = Object.keys(byMonth);
+        console.log('[save] PATCH months:', monthsToPatch);
 
         // 自动为缺失月份创建Gist（无需手工配置）
         var missingMonths = Object.keys(byMonth).filter(function(m) { return !MONTH_GIST_CACHE[m]; });
@@ -1072,8 +1074,8 @@ async function save() {
           showToast('新月份Gist已创建，正在保存数据...');
         }
 
-        // 对每月份Gist做PATCH
-        var patchPromises = allMonths.map(function(month) {
+        // 对有数据的月份Gist做PATCH
+        var patchPromises = monthsToPatch.map(function(month) {
           var cfg = MONTH_GIST_CACHE[month];
           if (!cfg) return null; // 跳过无配置的月份
           var monthData = {
