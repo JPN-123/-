@@ -1726,7 +1726,7 @@ function submitOrder() {
     if (ok) {
       showToast(editId ? '修改成功' : '添加成功');
     } else {
-      showToast('❌ Gist保存失败(403?)，修改未持久化到云端！请检查Token是否有gist写入权限');
+      showToast('❌ Gist保存失败，修改未持久化到云端！请检查网络或Token权限');
     }
     closeOrderModal();
     renderOrders();
