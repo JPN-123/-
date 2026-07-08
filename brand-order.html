@@ -235,7 +235,7 @@
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
-  <p style="color:#666;font-size:14px">加载中... <span style="font-size:11px;color:#aaa">v2026.07.08-fixEmpty</span></p>
+  <p style="color:#666;font-size:14px">加载中... <span style="font-size:11px;color:#aaa">v2026.07.08-privateGist</span></p>
 </div>
 
 <div class="header" id="appHeader" style="display:none">
@@ -834,7 +834,7 @@ async function loadData() {
     var _rawUrl = 'https://gist.githubusercontent.com/JPN-123/' + gistId + '/raw/' + INDEX_FILENAME + '?t=' + Date.now();
     try {
       setSyncStatus('syncing', '正在从云端恢复数据...');
-      var _rr = await fetch(_rawUrl, { mode: 'cors', cache: 'no-cache' });
+      var _rr = await fetch(_rawUrl, { mode: 'cors', cache: 'no-cache', headers: apiHeaders() });
       if (_rr.ok) {
         var _rawText = await _rr.text();
         var _rawData = JSON.parse(_rawText);
@@ -869,8 +869,9 @@ async function loadData() {
     var allInbound = [];
     var fetchPromises = monthGists.map(function(mg) {
       var rawUrl = 'https://gist.githubusercontent.com/JPN-123/' + mg.gistId + '/raw/' + mg.filename + '?t=' + Date.now();
-      return fetch(rawUrl, { cache: 'no-cache' }).then(function(r) {
+      return fetch(rawUrl, { cache: 'no-cache', headers: apiHeaders() }).then(function(r) {
         if (r.ok) return r.text();
+        console.warn('[multiGist] fetch failed for', mg.month, 'status:', r.status);
         return null;
       }).then(function(txt) {
         if (!txt) return;
@@ -900,7 +901,7 @@ async function loadData() {
         if (!content || file.truncated) {
           console.log('[loadData] File truncated (' + file.size + ' bytes), fetching from raw_url...');
           try {
-            var rawRes = await fetch(file.raw_url + '?t=' + Date.now(), { cache: 'no-cache' });
+            var rawRes = await fetch(file.raw_url + '?t=' + Date.now(), { cache: 'no-cache', headers: apiHeaders() });
             if (rawRes.ok) {
               content = await rawRes.text();
               console.log('[loadData] Raw fetch complete: ' + content.length + ' chars');
