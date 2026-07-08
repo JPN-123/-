@@ -235,7 +235,7 @@
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
-  <p style="color:#666;font-size:14px">加载中... <span style="font-size:11px;color:#aaa">v2026.07.02-multiGist</span></p>
+  <p style="color:#666;font-size:14px">加载中... <span style="font-size:11px;color:#aaa">v2026.07.08-autoMonth</span></p>
 </div>
 
 <div class="header" id="appHeader" style="display:none">
@@ -839,6 +839,8 @@ async function loadData() {
         var _rawData = JSON.parse(_rawText);
         // 索引格式：{index:true, monthGists:[{month,gistId,filename}, ...]}
         if (_rawData && _rawData.index && _rawData.monthGists) {
+          MONTH_GIST_CACHE = {};
+          _rawData.monthGists.forEach(function(mg) { MONTH_GIST_CACHE[mg.month] = mg; });
           var _merged = await _loadFromMonthlyGists(_rawData.monthGists);
           applyData(_merged);
           dataLoaded = true;
@@ -1019,11 +1021,55 @@ async function save() {
         var allMonths = Object.keys(MONTH_GIST_CACHE);
         Object.keys(byMonth).forEach(function(m) { if (allMonths.indexOf(m) === -1) allMonths.push(m); });
 
-        // 检查是否有新月份没有Gist配置（无法保存）
+        // 自动为缺失月份创建Gist（无需手工配置）
         var missingMonths = Object.keys(byMonth).filter(function(m) { return !MONTH_GIST_CACHE[m]; });
         if (missingMonths.length > 0) {
-          console.warn('以下月份无Gist配置，将跳过保存：', missingMonths);
-          showToast('警告：' + missingMonths.join(',') + ' 等月份无Gist配置，请联系管理员');
+          console.log('以下月份无Gist配置，正在自动创建：', missingMonths);
+          showToast('正在为新月份 ' + missingMonths.join(',') + ' 创建云端存储...');
+          var _createPromises = missingMonths.map(function(m) {
+            var _fname = 'brand_orders_' + m + '.json';
+            return fetch(GIST_API, {
+              method: 'POST',
+              headers: apiHeaders({ 'Content-Type': 'application/json' }),
+              body: JSON.stringify({
+                description: 'BRAND orders ' + m,
+                public: false,
+                files: { [_fname]: { content: '{"_appVersion":11,"_savedAt":0,"brandOrders":[],"inboundRecords":[]}' } }
+              })
+            }).then(function(r) { return r.json(); }).then(function(d) {
+              if (d.id) {
+                MONTH_GIST_CACHE[m] = { month: m, gistId: d.id, filename: _fname };
+                console.log('[autoCreate] 已创建月份Gist:', m, d.id);
+              } else {
+                console.error('[autoCreate] 创建失败:', m, d);
+              }
+            }).catch(function(e) {
+              console.error('[autoCreate] 创建异常:', m, e);
+            });
+          });
+          await Promise.all(_createPromises);
+          // 更新索引Gist（best-effort，失败不影响本次保存）
+          try {
+            var _idxData = {
+              _appVersion: 11,
+              _savedAt: Date.now(),
+              index: true,
+              monthGists: Object.keys(MONTH_GIST_CACHE).map(function(m) {
+                return { month: m, gistId: MONTH_GIST_CACHE[m].gistId, filename: MONTH_GIST_CACHE[m].filename };
+              })
+            };
+            await fetch(GIST_API + '/' + gistId, {
+              method: 'PATCH',
+              headers: apiHeaders({ 'Content-Type': 'application/json' }),
+              body: JSON.stringify({
+                files: { [INDEX_FILENAME]: { content: JSON.stringify(_idxData) } }
+              })
+            });
+            console.log('[autoCreate] 索引已更新');
+          } catch(idxErr) {
+            console.warn('[autoCreate] 索引更新失败（不影响本次保存）:', idxErr);
+          }
+          showToast('新月份Gist已创建，正在保存数据...');
         }
 
         // 对每月份Gist做PATCH
