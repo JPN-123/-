@@ -2,128 +2,83 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>网络诊断 - WorkBuddy</title>
+<title>API 诊断</title>
 <style>
-body { font-family: "Microsoft YaHei", sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; background: #f5f5f5; }
-.test-item { background: #fff; padding: 16px; margin: 12px 0; border-radius: 8px; border-left: 4px solid #ccc; }
-.test-item.ok { border-color: #34a853; }
-.test-item.err { border-color: #ea4335; }
-.test-item.run { border-color: #1a73e8; }
-pre { background: #263238; color: #aed581; padding: 12px; border-radius: 6px; overflow: auto; font-size: 12px; max-height: 200px; }
-button { background: #1a73e8; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; }
-button:hover { background: #1557b0; }
+body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #4ec9b0; }
+.box { background: #2d2d30; padding: 12px; margin: 8px 0; border-radius: 6px; border: 1px solid #3e3e42; }
+.ok { color: #4ec9b0; } .err { color: #f44747; } .warn { color: #dcdcaa; }
+h2 { color: #569cd6; } .label { color: #9cdcfe; }
 </style>
 </head>
 <body>
-<h1>🔧 网络诊断工具</h1>
-<p>正在自动测试网络连接...</p>
-<div id="results"></div>
-<br><br>
-<button onclick="doAllTests()">🔄 重新运行全部测试</button>
-
+<h2>Gist API 诊断工具</h2>
+<div id="output"></div>
 <script>
-var r = document.getElementById('results');
+var TOKEN = ['github_pat_11CEOZ27','Q0UrAaRLcY0b1G_RpL8g2','54waapybPehf722O9mQWz','Ix8m92DcRtf9grhnCFCFB667y1NCdplz'].join('');
+var INDEX_GIST = 'add372557241d4f9038c3130b0b0f1ea';
+var out = document.getElementById('output');
 function log(msg, cls) {
-  var d = document.createElement('div');
-  d.className = 'test-item ' + (cls || '');
-  d.innerHTML = msg;
-  r.appendChild(d);
+  var div = document.createElement('div');
+  div.className = 'box ' + (cls || '');
+  div.innerHTML = msg;
+  out.appendChild(div);
+}
+function headers(extra) {
+  var h = extra || {};
+  h['Accept'] = 'application/vnd.github.v3+json';
+  h['Authorization'] = 'token ' + TOKEN;
+  return h;
 }
 
-async function doAllTests() {
-  r.innerHTML = '';
-  
-  // Test 1: localStorage
-  var ls1 = localStorage.getItem('inventory_data');
-  var ls2 = localStorage.getItem('inventory_cache');
-  var info1 = 'inventory_data: ';
-  if (!ls1) { info1 += '<b style="color:#ea4335">不存在（空）</b>'; }
-  else {
-    try {
-      var j1 = JSON.parse(ls1);
-      info1 += '<b style="color:#34a853">存在，items=' + (j1.items||[]).length + ' 条</b>';
-    } catch(e) { info1 += '<b style="color:#f9ab00">存在但解析失败（可能是旧格式）</b>, 长度=' + ls1.length; }
-  }
-  var info2 = 'inventory_cache: ';
-  if (!ls2) { info2 += '<b style="color:#ea4335">不存在（空）</b>'; }
-  else {
-    try {
-      var j2 = JSON.parse(ls2);
-      info2 += '<b style="color:#34a853">存在，items=' + (j2.items||[]).length + ' 条</b>';
-    } catch(e) { info2 += '<b style="color:#999">存在（原始文本格式），长度=' + ls2.length + '</b>'; }
-  }
-  log('<h3>Test 1: 浏览器本地存储 (localStorage)</h3>' + info1 + '<br>' + info2, 'run');
+log('开始诊断...', 'warn');
 
-  // Test 2: Token
-  var t = localStorage.getItem('platform_token') || '';
-  log('<h3>Test 2: GitHub Token</h3>' + (t ? 
-    '<b style="color:#34a853">已设置</b> (' + t.substring(0, 15) + '...)' : 
-    '<b style="color:#ea4335">未设置！这是保存功能不工作的原因</b>') +
-    '<br><small>提示：Token 用于保存数据到 GitHub，不影响数据读取</small>', 
-    t ? 'ok' : 'err');
+// Step 1: Fetch index Gist
+fetch('https://api.github.com/gists/' + INDEX_GIST, { headers: headers() })
+  .then(function(r) {
+    log('<span class="label">Step 1 - 索引Gist HTTP状态:</span> ' + r.status + ' ' + r.statusText, r.ok ? 'ok' : 'err');
+    return r.json();
+  })
+  .then(function(gist) {
+    var file = gist.files && gist.files['brand_orders.json'];
+    if (!file) { log('索引Gist中没有brand_orders.json文件', 'err'); return; }
+    var data = JSON.parse(file.content);
+    log('<span class="label">Step 2 - 索引解析:</span> monthGists数量=' + data.monthGists.length, 'ok');
+    data.monthGists.forEach(function(mg) {
+      log('<span class="label">  月份:</span> ' + mg.month + ' <span class="label">GistId:</span> ' + mg.gistId);
+    });
 
-  // Test 3: Raw URL fetch (most important!)
-  log('<h3>Test 3: Gist 数据下载（关键！）</h3>正在下载 <code>gist.githubusercontent.com</code> ...', 'run');
-  var rawUrl = 'https://gist.githubusercontent.com/JPN-123/8cd0ec9b1c7ba76a3186a4db9f6d8e80/raw/inventory_data.json';
-  try {
-    var t0 = Date.now();
-    var res = await fetch(rawUrl, { mode: 'cors' });
-    var elapsed = Date.now() - t0;
-    if (res.ok) {
-      var text = await res.text();
-      var data = JSON.parse(text);
-      log('<h3>Test 3: ✅ Gist 数据下载成功！</h3>' +
-        '<b>HTTP ' + res.status + '</b>, 耗时 ' + elapsed + 'ms, 大小 ' + (text.length / 1024).toFixed(1) + ' KB' +
-        '<br>物品：<b>' + data.items.length + '</b> 条 | 历史：<b>' + (data.history||[]).length + '</b> 条' +
-        '<br><br><button onclick="restoreNow()">✅ 一键写入 localStorage 并跳转到辅料库存</button>', 'ok');
-      window._gistData = text;
-      window._gistObj = data;
-      
-      // Show first few items
-      var preview = data.items.slice(0, 3).map(function(it) {
-        return it.name + ' | 库存:' + (it.currentQty || it.qty || '?') + ' | 分类:' + (it.category || '');
-      }).join('\n');
-      log('<details><summary>查看前 3 条物品预览</summary><pre>' + preview + '</pre></details>', 'ok');
-    } else {
-      log('<h3>Test 3: ❌ 下载失败 HTTP ' + res.status + '</h3>' +
-        '服务器返回错误状态码', 'err');
-    }
-  } catch(e) {
-    log('<h3>Test 3: ❌ 下载失败</h3>' +
-      '<pre>' + e.message + '\n\n' + e.stack + '</pre>' +
-      '<br>可能原因：<br>• 网络不通（公司防火墙？）<br>• DNS 解析失败', 'err');
-  }
+    // Step 3: Fetch each month Gist
+    var promises = data.monthGists.map(function(mg) {
+      return fetch('https://api.github.com/gists/' + mg.gistId, { headers: headers() })
+        .then(function(r) {
+          if (!r.ok) { log('<span class="label">月份 ' + mg.month + ':</span> HTTP ' + r.status, 'err'); return null; }
+          return r.text();
+        })
+        .then(function(txt) {
+          if (!txt) return;
+          var parsed = JSON.parse(txt);
+          var d;
+          if (parsed.files && Object.keys(parsed.files).length > 0) {
+            var fk = Object.keys(parsed.files);
+            d = JSON.parse(parsed.files[fk[0]].content);
+          } else {
+            d = parsed;
+          }
+          var count = Array.isArray(d.brandOrders) ? d.brandOrders.length : 0;
+          log('<span class="label">月份 ' + mg.month + ':</span> ' + count + ' 条订单 (响应大小: ' + txt.length + ' chars)', count > 0 ? 'ok' : 'warn');
+        })
+        .catch(function(e) {
+          log('<span class="label">月份 ' + mg.month + ':</span> 错误 - ' + e.message, 'err');
+        });
+    });
 
-  // Test 4: Check if inventory.html has new code
-  log('<h3>Test 4: 辅料库存页面版本检查</h3>正在获取线上 inventory.html ...', 'run');
-  try {
-    var ivRes = await fetch('https://jpn-123.github.io/-/inventory.html?v=' + Date.now());
-    var ivText = await ivRes.text();
-    var hasBanner = ivText.indexOf('recoverBanner') > 0;
-    var hasRaw = ivText.indexOf('gist.githubusercontent.com') > 0;
-    var size = (ivText.length / 1024).toFixed(1);
-    log('文件大小: ' + size + ' KB<br>' +
-      '包含恢复按钮代码: <b style="color:' + (hasBanner ? '#34a853' : '#ea4335') + '">' + (hasBanner ? '是 ✓' : '否 ✗') + '</b><br>' +
-      '包含 raw URL 获取: <b style="color:' + (hasRaw ? '#34a853' : '#ea4335') + '">' + (hasRaw ? '是 ✓' : '否 ✗') + '</b>',
-      (hasBanner && hasRaw) ? 'ok' : 'err');
-  } catch(e) {
-    log('无法获取 inventory.html: ' + e.message, 'err');
-  }
-}
-
-function restoreNow() {
-  if (window._gistData && window._gistObj) {
-    localStorage.setItem('inventory_data', window._gistData);
-    localStorage.setItem('inventory_cache', window._gistData);
-    alert('成功写入 ' + window._gistObj.items.length + ' 条物品数据！正在跳转...');
-    location.href = 'inventory.html';
-  } else {
-    alert('请先等待 Test 3 完成！');
-  }
-}
-
-// Auto run
-doAllTests();
+    Promise.all(promises).then(function() {
+      log('诊断完成！', 'ok');
+    });
+  })
+  .catch(function(e) {
+    log('索引Gist获取失败: ' + e.message, 'err');
+  });
 </script>
 </body>
 </html>
