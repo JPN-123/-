@@ -235,7 +235,7 @@
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
-  <p style="color:#666;font-size:14px">加载中... <span style="font-size:11px;color:#aaa">v2026.07.09-doubleParse</span></p>
+  <p style="color:#666;font-size:14px">加载中... <span style="font-size:11px;color:#aaa">v2026.07.09-safeRender</span></p>
 </div>
 
 <div class="header" id="appHeader" style="display:none">
@@ -786,6 +786,17 @@ function fixOverInbound() {
   return fixed;
 }
 
+// 安全渲染：如果app已显示则刷新表格（loadData异步完成时showApp可能已执行过）
+function _safeRender() {
+  try {
+    var header = document.getElementById('appHeader');
+    if (header && header.style.display !== 'none') {
+      renderOrders();
+      console.log('[loadData] renderOrders called, brandOrders=' + brandOrders.length);
+    }
+  } catch(e) { console.warn('[loadData] renderOrders error:', e); }
+}
+
 async function loadData() {
   if (!GITHUB_TOKEN) {
     setSyncStatus('offline', '本地模式');
@@ -819,6 +830,7 @@ async function loadData() {
         var data = JSON.parse(cached);
         applyData(data);
         dataLoaded = true;
+        _safeRender();
         setSyncStatus('offline', '使用本地缓存');
         showToast(msg + '，已切换本地缓存');
         return;
@@ -845,6 +857,7 @@ async function loadData() {
           var _merged = await _loadFromMonthlyGists(_rawData.monthGists);
           applyData(_merged);
           dataLoaded = true;
+          _safeRender();
           try { localStorage.setItem(CACHE_KEY, JSON.stringify(_merged)); } catch(_) {}
           setSyncStatus('offline', '使用云端数据(只读)');
           showToast('Token已失效，已从云端获取最新数据（只读模式）');
@@ -852,6 +865,7 @@ async function loadData() {
         }
         applyData(_rawData);
         dataLoaded = true;
+        _safeRender();
         try { localStorage.setItem(CACHE_KEY, _rawText); } catch(_) {}
         setSyncStatus('offline', '使用云端数据(只读)');
         showToast('Token已失效，已从云端获取最新数据（只读模式）');
@@ -864,7 +878,7 @@ async function loadData() {
   };
 
   // 【多Gist】从多个月份Gist并发拉取并合并 brandOrders
-  // 用 GitHub API + Accept: vnd.github.v3.raw 拉取（API 端点支持 CORS，raw URL 不支持）
+  // 用 GitHub API 拉取（API端点支持CORS，raw URL不支持）
   var _diagInfo = { startTime: Date.now(), steps: [] };
   window.diagBrandOrder = function() { console.log('=== BRAND ORDER 诊断 ===\n', JSON.stringify(_diagInfo, null, 2), '\nbrandOrders:', brandOrders.length, ' 条\ndataLoaded:', dataLoaded, '\ngistId:', gistId, '\nMONTH_GIST_CACHE:', Object.keys(MONTH_GIST_CACHE)); };
   async function _loadFromMonthlyGists(monthGists) {
@@ -872,9 +886,8 @@ async function loadData() {
     var allInbound = [];
     _diagInfo.steps.push({ step: '_loadFromMonthlyGists start', monthCount: monthGists.length, months: monthGists.map(function(m){return m.month;}) });
     var fetchPromises = monthGists.map(function(mg) {
-      // 改用 GitHub API + Accept: vnd.github.v3.raw 拉取（支持CORS，raw URL已被GitHub禁CORS）
       var apiUrl = 'https://api.github.com/gists/' + mg.gistId;
-      return fetch(apiUrl, { cache: 'no-cache', headers: apiHeaders({ 'Accept': 'application/vnd.github.v3.raw' }) }).then(function(r) {
+      return fetch(apiUrl, { cache: 'no-cache', headers: apiHeaders() }).then(function(r) {
         if (r.ok) return r.text();
         console.warn('[multiGist] fetch failed for', mg.month, 'status:', r.status);
         _diagInfo.steps.push({ step: 'fetch failed', month: mg.month, status: r.status });
@@ -882,11 +895,10 @@ async function loadData() {
       }).then(function(txt) {
         if (!txt) { _diagInfo.steps.push({ step: 'no text', month: mg.month }); return; }
         try {
-          // API返回的可能是Gist元数据JSON（含files对象）或直接文件内容
+          // API返回Gist元数据JSON，文件内容在files.{filename}.content里，需二次解析
           var parsed = JSON.parse(txt);
           var d;
           if (parsed.files && Object.keys(parsed.files).length > 0) {
-            // Gist元数据：从files.{filename}.content二次解析
             var fileKeys = Object.keys(parsed.files);
             var fileContent = parsed.files[fileKeys[0]].content;
             if (!fileContent) {
@@ -895,20 +907,23 @@ async function loadData() {
             }
             d = JSON.parse(fileContent);
           } else if (parsed.brandOrders || parsed.inboundRecords) {
-            // 直接文件内容
             d = parsed;
           } else {
             _diagInfo.steps.push({ step: 'unknown format', month: mg.month, keys: Object.keys(parsed).slice(0, 5) });
             return;
           }
           var orderCount = Array.isArray(d.brandOrders) ? d.brandOrders.length : 0;
-          _diagInfo.steps.push({ step: 'parsed', month: mg.month, orders: orderCount, textLen: txt.length });
+          _diagInfo.steps.push({ step: 'parsed OK', month: mg.month, orders: orderCount, textLen: txt.length });
           if (Array.isArray(d.brandOrders)) allOrders = allOrders.concat(d.brandOrders);
           if (Array.isArray(d.inboundRecords)) allInbound = allInbound.concat(d.inboundRecords);
         } catch(e) {
           console.warn('[multiGist] parse error for month', mg.month, e);
           _diagInfo.steps.push({ step: 'parse error', month: mg.month, error: e.message, textPreview: txt.substring(0, 200) });
         }
+      }).catch(function(e) {
+        // 关键修复：单个月份fetch失败不能让整个Promise.all崩溃
+        console.warn('[multiGist] network error for month', mg.month, e);
+        _diagInfo.steps.push({ step: 'network error', month: mg.month, error: e.message });
       });
     });
     await Promise.all(fetchPromises);
@@ -956,6 +971,9 @@ async function loadData() {
             // 先 applyData 把云端数据加载到页面（必须有这一步，否则页面会显示0条）
             applyData(merged);
             dataLoaded = true;
+            console.log('[loadData] applyData done, brandOrders=' + brandOrders.length);
+            // 关键修复：如果showApp已执行过，必须重新渲染表格
+            _safeRender();
             // 缓存：包含 monthGists 索引，方便离线恢复
             try { localStorage.setItem(CACHE_KEY, JSON.stringify(merged)); } catch(_) {}
             try { localStorage.setItem('brand_orders_index', JSON.stringify(data)); } catch(_) {}
@@ -985,6 +1003,8 @@ async function loadData() {
           }
           applyData(data);
           dataLoaded = true;
+          console.log('[loadData] applyData done (non-index), brandOrders=' + brandOrders.length);
+          _safeRender();
           // 缓存到本地，加载失败时降级使用
           try { localStorage.setItem(CACHE_KEY, content); } catch(_) {}
           // 【数据瘦身】从主Gist并行加载共享数据（users/items等）
