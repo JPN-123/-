@@ -235,7 +235,7 @@
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
-  <p style="color:#666;font-size:14px">加载中... <span style="font-size:11px;color:#aaa">v2026.07.08-apiCors</span></p>
+  <p style="color:#666;font-size:14px">加载中... <span style="font-size:11px;color:#aaa">v2026.07.09-doubleParse</span></p>
 </div>
 
 <div class="header" id="appHeader" style="display:none">
@@ -882,7 +882,25 @@ async function loadData() {
       }).then(function(txt) {
         if (!txt) { _diagInfo.steps.push({ step: 'no text', month: mg.month }); return; }
         try {
-          var d = JSON.parse(txt);
+          // API返回的可能是Gist元数据JSON（含files对象）或直接文件内容
+          var parsed = JSON.parse(txt);
+          var d;
+          if (parsed.files && Object.keys(parsed.files).length > 0) {
+            // Gist元数据：从files.{filename}.content二次解析
+            var fileKeys = Object.keys(parsed.files);
+            var fileContent = parsed.files[fileKeys[0]].content;
+            if (!fileContent) {
+              _diagInfo.steps.push({ step: 'empty content', month: mg.month });
+              return;
+            }
+            d = JSON.parse(fileContent);
+          } else if (parsed.brandOrders || parsed.inboundRecords) {
+            // 直接文件内容
+            d = parsed;
+          } else {
+            _diagInfo.steps.push({ step: 'unknown format', month: mg.month, keys: Object.keys(parsed).slice(0, 5) });
+            return;
+          }
           var orderCount = Array.isArray(d.brandOrders) ? d.brandOrders.length : 0;
           _diagInfo.steps.push({ step: 'parsed', month: mg.month, orders: orderCount, textLen: txt.length });
           if (Array.isArray(d.brandOrders)) allOrders = allOrders.concat(d.brandOrders);
